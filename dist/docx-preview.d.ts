@@ -13,6 +13,15 @@ export type HElement = {
     children?: (HElement | Node | string)[];
 } & Record<string, any>;
 
+export interface FontDefinition {
+    /** font-family name as used in the document, e.g. "SimSun" / "宋体" */
+    name: string;
+    /** stylesheet src value, e.g. 'url(fonts/simsun.woff2) format("woff2")' */
+    src: string;
+    weight?: string | number;
+    style?: string;
+}
+
 export interface Options {
     inWrapper: boolean;
     hideWrapperOnPrint: boolean;
@@ -20,6 +29,10 @@ export interface Options {
     ignoreHeight: boolean;
     ignoreFonts: boolean;
     breakPages: boolean;
+    /** re-flow content into page-sized sections after render (needs DOM layout) */
+    paginate: boolean;
+    /** external webfonts injected as @font-face before rendering */
+    fonts?: FontDefinition[];
     debug: boolean;
     experimental: boolean;
     className: string;

@@ -1448,8 +1448,8 @@ export class DocumentParser {
 
 	parseFont(node: Element, style: Record<string, string>) {
 		var ascii = xml.attr(node, "ascii");
-		var asciiTheme = values.themeValue(node, "asciiTheme");
-		var eastAsia = xml.attr(node, "eastAsia");
+		var asciiTheme = values.themeValue(node, "asciiTheme") ?? values.themeValue(node, "hAnsiTheme");
+		var eastAsia = xml.attr(node, "eastAsia") ?? values.themeValue(node, "eastAsiaTheme");
 		var fonts = [ascii, asciiTheme, eastAsia].filter(x => x).map(x => encloseFontFamily(x));
 
 		if (fonts.length > 0)
@@ -1473,11 +1473,17 @@ export class DocumentParser {
 	parseSpacing(node: Element, style: Record<string, string>) {
 		var before = xml.lengthAttr(node, "before");
 		var after = xml.lengthAttr(node, "after");
+		var beforeLines = xml.intAttr(node, "beforeLines", null);
+		var afterLines = xml.intAttr(node, "afterLines", null);
 		var line = xml.intAttr(node, "line", null);
 		var lineRule = xml.attr(node, "lineRule");
 
+		// beforeLines/afterLines are hundredths of a line; 1em approximates
+		// Word's single line height closely enough for preview purposes.
 		if (before) style["margin-top"] = before;
+		else if (beforeLines != null) style["margin-top"] = `${beforeLines / 100}em`;
 		if (after) style["margin-bottom"] = after;
+		else if (afterLines != null) style["margin-bottom"] = `${afterLines / 100}em`;
 
 		if (line !== null) {
 			switch (lineRule) {

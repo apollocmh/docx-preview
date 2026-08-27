@@ -2,6 +2,16 @@ import { WordDocument } from './word-document';
 import { DocumentParser } from './document-parser';
 import { HtmlRenderer } from './html-renderer';
 import { h } from './html';
+import { paginateWrapper } from './pagination';
+
+export interface FontDefinition {
+    /** font-family name as used in the document, e.g. "SimSun" / "宋体" */
+    name: string;
+    /** stylesheet src value, e.g. 'url(fonts/simsun.woff2) format("woff2")' */
+    src: string;
+    weight?: string | number;
+    style?: string;
+}
 
 export interface Options {
     inWrapper: boolean;
@@ -10,6 +20,10 @@ export interface Options {
     ignoreHeight: boolean;
     ignoreFonts: boolean;
     breakPages: boolean;
+    /** re-flow content into page-sized sections after render (needs DOM layout) */
+    paginate: boolean;
+    /** external webfonts injected as @font-face before rendering */
+    fonts?: FontDefinition[];
     debug: boolean;
     experimental: boolean;
     className: string;
@@ -31,6 +45,7 @@ export const defaultOptions: Options = {
     ignoreWidth: false,
     ignoreFonts: false,
     breakPages: true,
+    paginate: false,
     debug: false,
     experimental: false,
     className: "docx",
@@ -60,18 +75,54 @@ export async function renderDocument(document: any, userOptions?: Partial<Option
     return await renderer.render(document, ops);
 }
 
+function renderFontFaces(fonts: FontDefinition[]): HTMLElement {
+    const css = fonts.map(f => {
+        const family = f.name.replace(/["\\\r\n]/g, '');
+        const props = [`font-family: "${family}"`, `src: ${f.src}`];
+        if (f.weight != null) props.push(`font-weight: ${f.weight}`);
+        if (f.style != null) props.push(`font-style: ${f.style}`);
+        return `@font-face { ${props.join('; ')}; }`;
+    }).join('\n');
+
+    const el = document.createElement("style");
+    el.textContent = css;
+    return el;
+}
+
 export async function renderAsync(data: Blob | any, bodyContainer: HTMLElement, styleContainer?: HTMLElement, userOptions?: Partial<Options>): Promise<any> {
 	const doc = await parseAsync(data, userOptions);
 	const nodes = await renderDocument(doc, userOptions);
+    const ops = { ...defaultOptions, ...userOptions };
 
     styleContainer ??= bodyContainer;
     styleContainer.innerHTML = "";
     bodyContainer.innerHTML = "";
 
+    if (ops.fonts?.length) {
+        nodes.unshift(renderFontFaces(ops.fonts));
+    }
+
     for (let n of nodes) {
         const c = n.nodeName === "STYLE" ? styleContainer : bodyContainer;
         c.appendChild(n);
     }
-    
+
+    // Make sure webfonts are actually loaded before the content is measured
+    // (pagination) or painted, otherwise fallback-font metrics leak in.
+    const fontSet = typeof document !== "undefined" ? (document as any).fonts : null;
+    if (ops.fonts?.length && fontSet?.load) {
+        try {
+            await Promise.all(ops.fonts.map(f =>
+                fontSet.load(`${f.style ?? 'normal'} ${f.weight ?? 'normal'} 12px "${f.name.replace(/["\\\r\n]/g, '')}"`)));
+        } catch { /* a missing webfont must not break rendering */ }
+    }
+
+    if (ops.paginate) {
+        if (fontSet?.ready) {
+            try { await fontSet.ready; } catch { /* ignore */ }
+        }
+        paginateWrapper(bodyContainer, ops.className);
+    }
+
     return doc;
 }

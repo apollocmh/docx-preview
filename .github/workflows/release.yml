@@ -1,0 +1,87 @@
+name: Release
+
+# Push to master rebuilds and refreshes the rolling `latest` prerelease;
+# pushing a v* tag builds and publishes a stable release for that tag.
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Builds UMD (Babel-downleveled for legacy embedders) + ES artifacts and
+      # copies the standalone viewer into dist/.
+      - run: npm run build:release
+
+      # Contract gate: UMD free of `?.`/`??`, ESM exports, viewer files present.
+      - run: npm run test:package
+
+      # A tag push must match package.json (v1.2.3 <-> version 1.2.3).
+      - name: Verify tag matches package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${PKG}" >&2
+            exit 1
+          fi
+
+      - name: Package dist archive
+        working-directory: dist
+        run: zip -r ../docx-preview-dist.zip .
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/docx-preview.js
+            dist/docx-preview.min.js
+            dist/docx-preview.mjs
+            dist/docx-preview.min.mjs
+            dist/jszip.min.js
+            dist/viewer.html
+            dist/viewer.js
+            dist/viewer.css
+            docx-preview-dist.zip
+
+      - name: Update rolling latest prerelease
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: latest (master @ ${{ github.sha }})
+          prerelease: true
+          files: |
+            dist/docx-preview.js
+            dist/docx-preview.min.js
+            dist/docx-preview.mjs
+            dist/docx-preview.min.mjs
+            dist/jszip.min.js
+            dist/viewer.html
+            dist/viewer.js
+            dist/viewer.css
+            docx-preview-dist.zip

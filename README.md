@@ -35,6 +35,32 @@ Usage
     ...
 </body>
 ```
+
+Standalone viewer
+-----
+`dist/viewer.html` is a self-hosted, iframe-embeddable document reader (toolbar with pager, zoom and download). It loads a document from a URL parameter — the file server must allow cross-origin requests (CORS):
+
+```html
+<iframe src="viewer.html?file=https://example.com/document.docx"></iframe>
+<!-- optional initial zoom: fit-width (default) or a percent of natural size -->
+<iframe src="viewer.html?file=...&scale=fit | 75 | 0.75"></iframe>
+<!-- optional initial thumbnail sidebar: shown (default) or hidden -->
+<iframe src="viewer.html?file=...&thumbs=1 | 0"></iframe>
+```
+
+Build it with `npm run build:release` (library artifacts + viewer copied into `dist/`; `jszip.min.js` is included so no CDN is needed). GitHub Releases attach the same files: pushes to `master` refresh the rolling `latest` prerelease, `v*` tags publish a stable release. For local development, `npm run dev:viewer` builds the viewer and serves the repo at `http://localhost:8080/dist/viewer.html?file=<path-or-url>`.
+
+The viewer re-flows documents into pages (the `paginate` option). Fonts resolve in three tiers: fonts embedded in the .docx itself, then an optional `fonts.json` manifest placed next to `viewer.html`, then system fonts. The manifest is an array of webfont definitions injected as `@font-face`:
+
+```json
+[
+  { "name": "SimSun", "src": "url(fonts/simsun.woff2) format(\"woff2\")" },
+  { "name": "宋体", "src": "url(fonts/simsun.woff2) format(\"woff2\")" }
+]
+```
+
+Note `name` must match the family name used inside the document (Chinese documents often reference Chinese family names like `宋体`/`黑体` directly), so list aliases as separate entries. A missing or invalid `fonts.json` is silently ignored.
+
 API
 ---
 ```ts
@@ -51,6 +77,8 @@ renderAsync(
         ignoreHeight: boolean = false, //disables rendering height of page
         ignoreFonts: boolean = false, //disables fonts rendering
         breakPages: boolean = true, //enables page breaking on page breaks
+        paginate: boolean = false, //re-flows content into page-sized sections after render (splitting tables by row and paragraphs by line). Waits for webfonts before measuring.
+        fonts: [{ name: string, src: string, weight?: string|number, style?: string }], //external webfonts injected as @font-face before rendering, e.g. { name: "SimSun", src: 'url(fonts/simsun.woff2) format("woff2")' }
         ignoreLastRenderedPageBreak: boolean = true, //disables page breaking on lastRenderedPageBreak elements
         experimental: boolean = false, //enables experimental features (tab stops calculation)
         trimXmlDeclaration: boolean = true, //if true, xml declaration will be removed from xml documents before parsing

@@ -2535,8 +2535,8 @@ class DocumentParser {
     }
     parseFont(node, style) {
         var ascii = globalXmlParser.attr(node, "ascii");
-        var asciiTheme = values.themeValue(node, "asciiTheme");
-        var eastAsia = globalXmlParser.attr(node, "eastAsia");
+        var asciiTheme = values.themeValue(node, "asciiTheme") ?? values.themeValue(node, "hAnsiTheme");
+        var eastAsia = globalXmlParser.attr(node, "eastAsia") ?? values.themeValue(node, "eastAsiaTheme");
         var fonts = [ascii, asciiTheme, eastAsia].filter(x => x).map(x => encloseFontFamily(x));
         if (fonts.length > 0)
             style["font-family"] = [...new Set(fonts)].join(', ');
@@ -2560,12 +2560,18 @@ class DocumentParser {
     parseSpacing(node, style) {
         var before = globalXmlParser.lengthAttr(node, "before");
         var after = globalXmlParser.lengthAttr(node, "after");
+        var beforeLines = globalXmlParser.intAttr(node, "beforeLines", null);
+        var afterLines = globalXmlParser.intAttr(node, "afterLines", null);
         var line = globalXmlParser.intAttr(node, "line", null);
         var lineRule = globalXmlParser.attr(node, "lineRule");
         if (before)
             style["margin-top"] = before;
+        else if (beforeLines != null)
+            style["margin-top"] = `${beforeLines / 100}em`;
         if (after)
             style["margin-bottom"] = after;
+        else if (afterLines != null)
+            style["margin-bottom"] = `${afterLines / 100}em`;
         if (line !== null) {
             switch (lineRule) {
                 case "auto":
@@ -2972,9 +2978,11 @@ class HtmlRenderer {
         if (fontScheme) {
             if (fontScheme.majorFont) {
                 variables['--docx-majorHAnsi-font'] = fontScheme.majorFont.latinTypeface;
+                variables['--docx-majorEastAsia-font'] = fontScheme.majorFont.eaTypeface || fontScheme.majorFont.latinTypeface;
             }
             if (fontScheme.minorFont) {
                 variables['--docx-minorHAnsi-font'] = fontScheme.minorFont.latinTypeface;
+                variables['--docx-minorEastAsia-font'] = fontScheme.minorFont.eaTypeface || fontScheme.minorFont.latinTypeface;
             }
         }
         const colorScheme = themePart.theme?.colorScheme;
@@ -3375,6 +3383,8 @@ section.${c}>footer { z-index: 1; }
                 var selector = `${style.target ?? ''}.${style.cssName}`;
                 if (style.target != subStyle.target)
                     selector += ` ${subStyle.target}`;
+                if (style.id == null && subStyle.target == "span")
+                    selector = `.${this.className}`;
                 if (defautStyles[style.target] == style)
                     selector = `.${this.className} ${style.target}, ` + selector;
                 styleText += this.styleToString(selector, subStyle.values);
@@ -3951,11 +3961,189 @@ function findParent(elem, type) {
     return parent;
 }
 
+const FIT_EPSILON = 1;
+const MAX_PAGES_PER_SECTION = 1000;
+function paginateWrapper(container, className) {
+    const sections = Array.from(container.querySelectorAll(`section.${className}`));
+    let pageCount = 0;
+    for (const section of sections) {
+        pageCount += paginateSection(section, className);
+    }
+    if (pageCount > 0) {
+        const style = document.createElement("style");
+        style.textContent =
+            `.${className} .${className}-continuation { text-indent: 0 !important; }` +
+                `.${className} .${className}-continuation::before { content: none !important; }`;
+        container.prepend(style);
+    }
+    return pageCount;
+}
+function paginateSection(section, className) {
+    const article = section.querySelector(":scope > article");
+    if (!article)
+        return 0;
+    const sectionStyle = getComputedStyle(section);
+    const pageHeight = parseFloat(sectionStyle.minHeight);
+    if (!pageHeight || Number.isNaN(pageHeight))
+        return 0;
+    const columns = getComputedStyle(article).columnCount;
+    if (columns !== "auto" && columns !== "1")
+        return 0;
+    const contentLimit = pageHeight - parseFloat(sectionStyle.paddingTop) - parseFloat(sectionStyle.paddingBottom);
+    if (!(contentLimit > 0) || article.scrollHeight <= contentLimit + FIT_EPSILON)
+        return 0;
+    const header = section.querySelector(":scope > header");
+    const footer = section.querySelector(":scope > footer");
+    const notes = Array.from(section.querySelectorAll(":scope > ol"));
+    const pages = [section];
+    let currentArticle = article;
+    function newPage() {
+        const shell = section.cloneNode(false);
+        if (header)
+            shell.appendChild(header.cloneNode(true));
+        const pageArticle = article.cloneNode(false);
+        shell.appendChild(pageArticle);
+        if (footer)
+            shell.appendChild(footer.cloneNode(true));
+        pages.push(shell);
+        currentArticle = pageArticle;
+    }
+    const fits = () => currentArticle.scrollHeight <= contentLimit + FIT_EPSILON;
+    const bottomLimit = () => currentArticle.getBoundingClientRect().top + contentLimit;
+    const blocks = Array.from(article.children);
+    for (const b of blocks)
+        b.remove();
+    for (let i = 0; i < blocks.length && pages.length < MAX_PAGES_PER_SECTION; i++) {
+        const block = blocks[i];
+        currentArticle.appendChild(block);
+        if (fits())
+            continue;
+        const tail = splitBlock(block, bottomLimit(), className);
+        if (tail) {
+            blocks.splice(i + 1, 0, tail);
+            newPage();
+            continue;
+        }
+        block.remove();
+        if (currentArticle.childElementCount === 0) {
+            currentArticle.appendChild(block);
+            continue;
+        }
+        newPage();
+        i--;
+    }
+    if (notes.length > 0 && pages.length > 1) {
+        const lastPage = pages[pages.length - 1];
+        const lastFooter = lastPage.querySelector(":scope > footer");
+        for (const ol of notes)
+            lastPage.insertBefore(ol, lastFooter);
+    }
+    if (pages.length <= 1)
+        return 0;
+    let ref = section;
+    for (let i = 1; i < pages.length; i++) {
+        ref.after(pages[i]);
+        ref = pages[i];
+    }
+    return pages.length;
+}
+function splitBlock(block, bottomLimit, className) {
+    if (block.tagName === "TABLE") {
+        return splitTable(block, bottomLimit);
+    }
+    const pos = findTextSplitOffset(block, bottomLimit);
+    if (!pos)
+        return null;
+    const tail = splitAt(block, pos.node, pos.offset);
+    tail.classList.add(`${className}-continuation`);
+    return tail;
+}
+function splitTable(table, bottomLimit) {
+    const bodyRows = [];
+    for (const tbody of Array.from(table.tBodies)) {
+        bodyRows.push(...Array.from(tbody.rows));
+    }
+    if (bodyRows.length < 2)
+        return null;
+    const splitIndex = bodyRows.findIndex(r => r.getBoundingClientRect().bottom > bottomLimit);
+    if (splitIndex <= 0)
+        return null;
+    const tail = table.cloneNode(false);
+    const colgroup = table.querySelector(":scope > colgroup");
+    if (colgroup)
+        tail.appendChild(colgroup.cloneNode(true));
+    if (table.tHead)
+        tail.appendChild(table.tHead.cloneNode(true));
+    for (let i = splitIndex; i < bodyRows.length; i++) {
+        tail.appendChild(bodyRows[i]);
+    }
+    return tail;
+}
+function findTextSplitOffset(el, bottomLimit) {
+    const doc = el.ownerDocument;
+    const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = doc.createRange();
+    let hasFittingContent = false;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.length === 0)
+            continue;
+        let lo = 0, hi = node.length, fit = 0;
+        while (lo <= hi) {
+            const mid = (lo + hi) >> 1;
+            range.setStart(node, 0);
+            range.setEnd(node, mid);
+            const rects = range.getClientRects();
+            const last = rects[rects.length - 1];
+            if (last && last.bottom <= bottomLimit) {
+                fit = mid;
+                lo = mid + 1;
+            }
+            else {
+                hi = mid - 1;
+            }
+        }
+        if (fit === 0) {
+            return hasFittingContent ? { node, offset: 0 } : null;
+        }
+        if (fit < node.length) {
+            let back = fit;
+            const floor = Math.max(0, fit - 30);
+            while (back > floor && !/\s/.test(node.data[back - 1]))
+                back--;
+            return { node, offset: back > floor ? back : fit };
+        }
+        hasFittingContent = true;
+    }
+    return null;
+}
+function splitAt(el, textNode, offset) {
+    const tail = el.cloneNode(false);
+    const secondHalf = textNode.splitText(offset);
+    moveTail(secondHalf, el, tail);
+    return tail;
+}
+function moveTail(node, root, tailRoot) {
+    const parent = node.parentNode;
+    if (parent === root) {
+        tailRoot.appendChild(node);
+        while (node.nextSibling)
+            tailRoot.appendChild(node.nextSibling);
+        return;
+    }
+    const parentClone = parent.cloneNode(false);
+    tailRoot.appendChild(parentClone);
+    parentClone.appendChild(node);
+    while (node.nextSibling)
+        parentClone.appendChild(node.nextSibling);
+    moveTail(parent, root, tailRoot);
+}
+
 const defaultOptions = {
     ignoreHeight: false,
     ignoreWidth: false,
     ignoreFonts: false,
     breakPages: true,
+    paginate: false,
     debug: false,
     experimental: false,
     className: "docx",
@@ -3982,15 +4170,49 @@ async function renderDocument(document, userOptions) {
     const renderer = new HtmlRenderer();
     return await renderer.render(document, ops);
 }
+function renderFontFaces(fonts) {
+    const css = fonts.map(f => {
+        const family = f.name.replace(/["\\\r\n]/g, '');
+        const props = [`font-family: "${family}"`, `src: ${f.src}`];
+        if (f.weight != null)
+            props.push(`font-weight: ${f.weight}`);
+        if (f.style != null)
+            props.push(`font-style: ${f.style}`);
+        return `@font-face { ${props.join('; ')}; }`;
+    }).join('\n');
+    const el = document.createElement("style");
+    el.textContent = css;
+    return el;
+}
 async function renderAsync(data, bodyContainer, styleContainer, userOptions) {
     const doc = await parseAsync(data, userOptions);
     const nodes = await renderDocument(doc, userOptions);
+    const ops = { ...defaultOptions, ...userOptions };
     styleContainer ?? (styleContainer = bodyContainer);
     styleContainer.innerHTML = "";
     bodyContainer.innerHTML = "";
+    if (ops.fonts?.length) {
+        nodes.unshift(renderFontFaces(ops.fonts));
+    }
     for (let n of nodes) {
         const c = n.nodeName === "STYLE" ? styleContainer : bodyContainer;
         c.appendChild(n);
+    }
+    const fontSet = typeof document !== "undefined" ? document.fonts : null;
+    if (ops.fonts?.length && fontSet?.load) {
+        try {
+            await Promise.all(ops.fonts.map(f => fontSet.load(`${f.style ?? 'normal'} ${f.weight ?? 'normal'} 12px "${f.name.replace(/["\\\r\n]/g, '')}"`)));
+        }
+        catch { }
+    }
+    if (ops.paginate) {
+        if (fontSet?.ready) {
+            try {
+                await fontSet.ready;
+            }
+            catch { }
+        }
+        paginateWrapper(bodyContainer, ops.className);
     }
     return doc;
 }

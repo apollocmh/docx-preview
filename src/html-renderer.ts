@@ -144,10 +144,15 @@ export class HtmlRenderer {
 		if (fontScheme) {
 			if (fontScheme.majorFont) {
 				variables['--docx-majorHAnsi-font'] = fontScheme.majorFont.latinTypeface;
+				// An empty East Asian theme typeface falls back to the Latin
+				// one, so var() references never come out undefined (which
+				// would invalidate the whole font-family declaration).
+				variables['--docx-majorEastAsia-font'] = fontScheme.majorFont.eaTypeface || fontScheme.majorFont.latinTypeface;
 			}
 
 			if (fontScheme.minorFont) {
 				variables['--docx-minorHAnsi-font'] = fontScheme.minorFont.latinTypeface;
+				variables['--docx-minorEastAsia-font'] = fontScheme.minorFont.eaTypeface || fontScheme.minorFont.latinTypeface;
 			}
 		}
 
@@ -697,10 +702,18 @@ section.${c}>footer { z-index: 1; }
 
 			for (const subStyle of subStyles) {
 				//TODO temporary disable modificators until test it well
-				var selector = `${style.target ?? ''}.${style.cssName}`; //${subStyle.mod ?? ''} 
+				var selector = `${style.target ?? ''}.${style.cssName}`; //${subStyle.mod ?? ''}
 
 				if (style.target != subStyle.target)
 					selector += ` ${subStyle.target}`;
+
+				// docDefaults run properties must sit at the very bottom of the
+				// cascade. Emitted as ".docx span" they would directly match
+				// every span and beat fonts inherited from paragraph styles —
+				// the reverse of Word's style hierarchy. Emitted on the root
+				// container they are inherited, so paragraph fonts win.
+				if (style.id == null && subStyle.target == "span")
+					selector = `.${this.className}`;
 
 				if (defautStyles[style.target] == style)
 					selector = `.${this.className} ${style.target}, ` + selector;

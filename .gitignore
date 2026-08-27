@@ -4,5 +4,8 @@ bin
 obj
 docx.js.map
 /*.json
+!package-lock.json
 /*.config
 *.log
+.idea
+/docs/agent-tmp/
