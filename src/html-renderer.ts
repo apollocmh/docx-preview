@@ -527,6 +527,8 @@ export class HtmlRenderer {
 		}
 		var styleText = `${wrapperStyle}
 .${c} { color: black; hyphens: auto; text-underline-position: from-font; }
+.${c} { --docx-font-ascii: serif; --docx-font-ea: serif; }
+.${c}, .${c} * { font-family: var(--docx-font-ascii), var(--docx-font-ea); }
 section.${c} { box-sizing: border-box; display: flex; flex-flow: column nowrap; position: relative; overflow: hidden; }
 section.${c}>article { margin-bottom: auto; z-index: 1; }
 section.${c}>footer { z-index: 1; }

@@ -1447,13 +1447,19 @@ export class DocumentParser {
 	}
 
 	parseFont(node: Element, style: Record<string, string>) {
-		var ascii = xml.attr(node, "ascii");
-		var asciiTheme = values.themeValue(node, "asciiTheme") ?? values.themeValue(node, "hAnsiTheme");
+		// Fonts are resolved per script (Latin / East Asian) as CSS custom
+		// properties, which inherit independently down the style hierarchy —
+		// mirroring Word's per-script font resolution. A run-level rFonts
+		// carrying only w:ascii then overrides just the Latin component and
+		// keeps the East Asian font inherited from the paragraph style,
+		// instead of clobbering the whole font-family. The universal rule in
+		// renderDefaultStyle composes the final font-family on every element.
+		var ascii = xml.attr(node, "ascii") ?? xml.attr(node, "hAnsi")
+			?? values.themeValue(node, "asciiTheme") ?? values.themeValue(node, "hAnsiTheme");
 		var eastAsia = xml.attr(node, "eastAsia") ?? values.themeValue(node, "eastAsiaTheme");
-		var fonts = [ascii, asciiTheme, eastAsia].filter(x => x).map(x => encloseFontFamily(x));
 
-		if (fonts.length > 0)
-			style["font-family"] = [...new Set(fonts)].join(', ');
+		if (ascii) style["--docx-font-ascii"] = encloseFontFamily(ascii);
+		if (eastAsia) style["--docx-font-ea"] = encloseFontFamily(eastAsia);
 	}
 
 	parseIndentation(node: Element, style: Record<string, string>) {

@@ -28,7 +28,13 @@ export function h(elem: HElement | Node | string) {
         if (isString(style)) {
             result.setAttribute("style", style);
         } else {
-            Object.assign(result.style, style);
+            // CSS custom properties ("--*") are not members of
+            // CSSStyleDeclaration — Object.assign drops them, so they must
+            // go through setProperty.
+            for (const [key, value] of Object.entries(style)) {
+                if (key.startsWith("--")) result.style.setProperty(key, value);
+                else (result.style as any)[key] = value;
+            }
         }
     }
     if (props) {

@@ -14,6 +14,9 @@ const files = [
   ['viewer/viewer.html', 'viewer.html'],
   ['viewer/viewer.js', 'viewer.js'],
   ['viewer/viewer.css', 'viewer.css'],
+  // Optional webfont manifest consumed by viewer.js; edit to match the fonts
+  // available on your server.
+  ['viewer/fonts.json', 'fonts.json'],
   // docx-preview's UMD build resolves jszip through the global `JSZip`; ship
   // the official browser build next to it so the viewer needs no CDN.
   ['node_modules/jszip/dist/jszip.min.js', 'jszip.min.js'],
