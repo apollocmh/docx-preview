@@ -1,0 +1,22 @@
+[
+  {
+    "name": "方正仿宋_GBK",
+    "src": "url('/libs/fonts/FangZhengFangSong-GBK-1.ttf') format('truetype')"
+  },
+  {
+    "name": "方正小标宋_GBK",
+    "src": "url('/libs/fonts/FangZhengXiaoBiaoSongTi_GBK.ttf') format('truetype')"
+  },
+  {
+    "name": "方正黑体_GBK",
+    "src": "url('/libs/fonts/FangZhengHeiTi-GBK-1.ttf') format('truetype')"
+  },
+  {
+    "name": "方正楷体_GBK",
+    "src": "url('/libs/fonts/FangZhengKaiTi-GBK-1.ttf') format('truetype')"
+  },
+  {
+    "name": "方正公文黑体",
+    "src": "url('/libs/fonts/FZHT_Document.ttf') format('truetype')"
+  }
+]

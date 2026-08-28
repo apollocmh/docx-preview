@@ -57,6 +57,16 @@
     return String(err);
   }
 
+  // OLE2 compound-file magic (D0 CF 11 E0 ...): legacy binary documents —
+  // old .doc, and .wps as still saved by default even by recent WPS Office.
+  // JSZip can only open zip/OOXML packages, so detect this upfront and give
+  // a targeted message instead of a cryptic zip error.
+  function isLegacyBinary(buffer) {
+    if (!buffer || buffer.byteLength < 4) return false;
+    var b = new Uint8Array(buffer, 0, 4);
+    return b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
+  }
+
   function showError(title, detail) {
     els.errorTitle.textContent = title;
     els.errorDetail.textContent = detail || '';
@@ -87,6 +97,10 @@
 
   var docUrl = '';
   var docName = '';
+  // ?filename= override: media-library URLs often end in an opaque id/hash,
+  // so the caller passes the real document name explicitly (used for the
+  // download file name and the document title).
+  var filenameOverride = '';
   var docLoaded = false;
   var wrapperEl = null; // .docx-wrapper produced by the library
   var sections = []; // one <section> per rendered page
@@ -407,6 +421,19 @@
     els.empty.hidden = true;
     setLoading(true);
 
+    if (isLegacyBinary(buffer)) {
+      setLoading(false);
+      els.empty.hidden = false;
+      applyChrome();
+      showError(
+        '无法打开' + (label ? '「' + label + '」' : '文档'),
+        '这是旧版二进制文档格式(.wps / .doc),不是 OOXML(.docx)。' +
+          '即使是新版 WPS Office,默认保存的 .wps 仍是二进制格式。' +
+          '请用 WPS 或 Word 将其另存为 .docx 后重试。',
+      );
+      return Promise.resolve();
+    }
+
     return loadExternalFonts()
       .then(function (fonts) {
         return api.renderAsync(buffer, els.docBox, undefined, {
@@ -439,6 +466,7 @@
 
         docLoaded = true;
         currentPage = 0;
+        if (docName) document.title = docName;
         applyScale();
         buildThumbs();
         trackPages();
@@ -474,6 +502,7 @@
     } catch (_ignored) {
       /* keep the raw URL as the label */
     }
+    if (filenameOverride) docName = filenameOverride;
 
     fetch(fileUrl, { mode: 'cors', credentials: 'omit' })
       .then(function (response) {
@@ -639,6 +668,10 @@
     var raw = params.get('thumbs');
     if (raw === '0' || raw === 'false' || raw === 'hide') thumbsVisible = false;
   })();
+
+  // ?filename=<name>: explicit document name for download/title when the
+  // file URL is an opaque media-library address.
+  filenameOverride = params.get('filename') || '';
 
   updateScaleUi();
   applyChrome();

@@ -7,6 +7,8 @@ export interface WmlSettings {
 	footnoteProps: NoteProperties;
 	endnoteProps: NoteProperties;
 	autoHyphenation: boolean;
+	/** w:compatSetting "compatibilityMode"; 11 = Word 2003 layout rules */
+	compatMode?: number;
 }
 
 export interface NoteProperties {
@@ -23,6 +25,15 @@ export function parseSettings(elem: Element, xml: XmlParser) {
 			case "footnotePr": result.footnoteProps = parseNoteProperties(el, xml); break;
 			case "endnotePr": result.endnoteProps = parseNoteProperties(el, xml); break;
 			case "autoHyphenation": result.autoHyphenation = xml.boolAttr(el, "val"); break;
+			case "compat":
+				for (let c of xml.elements(el)) {
+					if (c.localName == "compatSetting"
+						&& xml.attr(c, "name") == "compatibilityMode"
+						&& (xml.attr(c, "uri") ?? "").includes("schemas.microsoft.com/office/word")) {
+						result.compatMode = xml.intAttr(c, "val", null);
+					}
+				}
+				break;
 		}
 	}
 

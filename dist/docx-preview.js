@@ -1042,6 +1042,14 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         case "autoHyphenation":
           result.autoHyphenation = xml.boolAttr(el, "val");
           break;
+        case "compat":
+          for (let c of xml.elements(el)) {
+            var _xml$attr;
+            if (c.localName == "compatSetting" && xml.attr(c, "name") == "compatibilityMode" && ((_xml$attr = xml.attr(c, "uri")) !== null && _xml$attr !== void 0 ? _xml$attr : "").includes("schemas.microsoft.com/office/word")) {
+              result.compatMode = xml.intAttr(c, "val", null);
+            }
+          }
+          break;
       }
     }
     return result;
@@ -2617,12 +2625,11 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       if (col) style["text-decoration-color"] = col;
     }
     parseFont(node, style) {
-      var _values$themeValue, _globalXmlParser$attr3;
-      var ascii = globalXmlParser.attr(node, "ascii");
-      var asciiTheme = (_values$themeValue = values.themeValue(node, "asciiTheme")) !== null && _values$themeValue !== void 0 ? _values$themeValue : values.themeValue(node, "hAnsiTheme");
-      var eastAsia = (_globalXmlParser$attr3 = globalXmlParser.attr(node, "eastAsia")) !== null && _globalXmlParser$attr3 !== void 0 ? _globalXmlParser$attr3 : values.themeValue(node, "eastAsiaTheme");
-      var fonts = [ascii, asciiTheme, eastAsia].filter(x => x).map(x => encloseFontFamily(x));
-      if (fonts.length > 0) style["font-family"] = [...new Set(fonts)].join(', ');
+      var _ref, _ref2, _globalXmlParser$attr3, _globalXmlParser$attr4;
+      var ascii = (_ref = (_ref2 = (_globalXmlParser$attr3 = globalXmlParser.attr(node, "ascii")) !== null && _globalXmlParser$attr3 !== void 0 ? _globalXmlParser$attr3 : globalXmlParser.attr(node, "hAnsi")) !== null && _ref2 !== void 0 ? _ref2 : values.themeValue(node, "asciiTheme")) !== null && _ref !== void 0 ? _ref : values.themeValue(node, "hAnsiTheme");
+      var eastAsia = (_globalXmlParser$attr4 = globalXmlParser.attr(node, "eastAsia")) !== null && _globalXmlParser$attr4 !== void 0 ? _globalXmlParser$attr4 : values.themeValue(node, "eastAsiaTheme");
+      if (ascii) style["--docx-font-ascii"] = encloseFontFamily(ascii);
+      if (eastAsia) style["--docx-font-ea"] = encloseFontFamily(eastAsia);
     }
     parseIndentation(node, style) {
       var firstLine = globalXmlParser.lengthAttr(node, "firstLine");
@@ -2987,14 +2994,19 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       if (isString(style)) {
         result.setAttribute("style", style);
       } else {
-        Object.assign(result.style, style);
+        for (const _ref3 of Object.entries(style)) {
+          var _ref4 = _slicedToArray(_ref3, 2);
+          const key = _ref4[0];
+          const value = _ref4[1];
+          if (key.startsWith("--")) result.style.setProperty(key, value);else result.style[key] = value;
+        }
       }
     }
     if (props) {
-      for (const _ref of Object.entries(props)) {
-        var _ref2 = _slicedToArray(_ref, 2);
-        const key = _ref2[0];
-        const value = _ref2[1];
+      for (const _ref5 of Object.entries(props)) {
+        var _ref6 = _slicedToArray(_ref5, 2);
+        const key = _ref6[0];
+        const value = _ref6[1];
         if (value !== undefined) result[key] = value;
       }
     }
@@ -3021,6 +3033,7 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       this.currentEndnoteIds = [];
       this.usedHederFooterParts = [];
       this.currentTabs = [];
+      this.legacyCompat = false;
       this.commentMap = {};
       this.tasks = [];
       this.postRenderTasks = [];
@@ -3057,8 +3070,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
         this.endnoteMap = keyBy(document.endnotesPart.notes, x => x.id);
       }
       if (document.settingsPart) {
-        var _document$settingsPar;
+        var _document$settingsPar, _document$settingsPar2;
         this.defaultTabSize = (_document$settingsPar = document.settingsPart.settings) === null || _document$settingsPar === void 0 ? void 0 : _document$settingsPar.defaultTabStop;
+        const compatMode = (_document$settingsPar2 = document.settingsPart.settings) === null || _document$settingsPar2 === void 0 ? void 0 : _document$settingsPar2.compatMode;
+        this.legacyCompat = compatMode != null && compatMode <= 11;
       }
       if (!options.ignoreFonts && document.fontTablePart) result.push(...(await this.renderFontTable(document.fontTablePart)));
       var sectionElements = this.renderSections(document.documentPart.body);
@@ -3091,10 +3106,10 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       }
       const colorScheme = (_themePart$theme2 = themePart.theme) === null || _themePart$theme2 === void 0 ? void 0 : _themePart$theme2.colorScheme;
       if (colorScheme) {
-        for (let _ref3 of Object.entries(colorScheme.colors)) {
-          var _ref4 = _slicedToArray(_ref3, 2);
-          let k = _ref4[0];
-          let v = _ref4[1];
+        for (let _ref7 of Object.entries(colorScheme.colors)) {
+          var _ref8 = _slicedToArray(_ref7, 2);
+          let k = _ref8[0];
+          let v = _ref8[1];
           variables[`--docx-${k}-color`] = `#${v}`;
         }
       }
@@ -3143,6 +3158,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
     }
     processStyles(styles) {
       const stylesMap = keyBy(styles.filter(x => x.id != null), x => x.id);
+      this.defaultParagraphStyle = styles.find(s => s.isDefault && s.target == "p");
+      this.docDefaultsStyle = styles.find(s => s.id == null);
       for (const style of styles.filter(x => x.basedOn)) {
         var baseStyle = stylesMap[style.basedOn];
         if (baseStyle) {
@@ -3276,9 +3293,9 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       return result;
     }
     renderHeaderFooter(refs, props, page, firstOfSection, into) {
-      var _ref5, _ref6;
+      var _ref9, _ref0;
       if (!refs) return;
-      var ref = (_ref5 = (_ref6 = props.titlePage && firstOfSection ? refs.find(x => x.type == "first") : null) !== null && _ref6 !== void 0 ? _ref6 : page % 2 == 1 ? refs.find(x => x.type == "even") : null) !== null && _ref5 !== void 0 ? _ref5 : refs.find(x => x.type == "default");
+      var ref = (_ref9 = (_ref0 = props.titlePage && firstOfSection ? refs.find(x => x.type == "first") : null) !== null && _ref0 !== void 0 ? _ref0 : page % 2 == 1 ? refs.find(x => x.type == "even") : null) !== null && _ref9 !== void 0 ? _ref9 : refs.find(x => x.type == "default");
       var part = ref && this.document.findPartByRelId(ref.id, this.document.documentPart);
       if (part) {
         this.currentPart = part;
@@ -3419,6 +3436,8 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       }
       var styleText = `${wrapperStyle}
 .${c} { color: black; hyphens: auto; text-underline-position: from-font; }
+.${c} { --docx-font-ascii: serif; --docx-font-ea: serif; }
+.${c}, .${c} * { font-family: var(--docx-font-ascii), var(--docx-font-ea); }
 section.${c} { box-sizing: border-box; display: flex; flex-flow: column nowrap; position: relative; overflow: hidden; }
 section.${c}>article { margin-bottom: auto; z-index: 1; }
 section.${c}>footer { z-index: 1; }
@@ -3685,7 +3704,19 @@ section.${c}>footer { z-index: 1; }
       if (numbering) {
         result.classList.add(this.numberingClass(numbering.id, numbering.level));
       }
+      if (this.legacyCompat && this.textAlignOf(elem) === "justify" && / {2,}| {2,}|　/.test(result.textContent)) {
+        result.style.setProperty("text-align-last", "justify");
+      }
       return result;
+    }
+    textAlignOf(elem) {
+      var _elem$cssStyle, _ref1, _ref10, _from;
+      if ((_elem$cssStyle = elem.cssStyle) !== null && _elem$cssStyle !== void 0 && _elem$cssStyle["text-align"]) return elem.cssStyle["text-align"];
+      const from = s => {
+        var _s$styles;
+        return s === null || s === void 0 || (_s$styles = s.styles) === null || _s$styles === void 0 || (_s$styles = _s$styles.find(x => x.target == "p")) === null || _s$styles === void 0 || (_s$styles = _s$styles.values) === null || _s$styles === void 0 ? void 0 : _s$styles["text-align"];
+      };
+      return (_ref1 = (_ref10 = (_from = from(this.findStyle(elem.styleName))) !== null && _from !== void 0 ? _from : from(this.defaultParagraphStyle)) !== null && _ref10 !== void 0 ? _ref10 : from(this.docDefaultsStyle)) !== null && _ref1 !== void 0 ? _ref1 : null;
     }
     renderHyperlink(elem) {
       const res = this.toH(elem, ns.html, "a");
@@ -3775,9 +3806,9 @@ section.${c}>footer { z-index: 1; }
       return result;
     }
     renderImage(elem) {
-      var _elem$cssStyle, _transform;
+      var _elem$cssStyle2, _transform;
       let result = this.toHTML(elem, ns.html, "img", []);
-      let transform = (_elem$cssStyle = elem.cssStyle) === null || _elem$cssStyle === void 0 ? void 0 : _elem$cssStyle.transform;
+      let transform = (_elem$cssStyle2 = elem.cssStyle) === null || _elem$cssStyle2 === void 0 ? void 0 : _elem$cssStyle2.transform;
       if (elem.srcRect && elem.srcRect.some(x => x != 0)) {
         var _elem$srcRect = _slicedToArray(elem.srcRect, 4),
           left = _elem$srcRect[0],
@@ -3966,10 +3997,10 @@ section.${c}>footer { z-index: 1; }
     }
     renderVmlChildElement(elem) {
       const result = this.createSvgElement(elem.tagName);
-      Object.entries(elem.attrs).forEach(_ref7 => {
-        let _ref8 = _slicedToArray(_ref7, 2),
-          k = _ref8[0],
-          v = _ref8[1];
+      Object.entries(elem.attrs).forEach(_ref11 => {
+        let _ref12 = _slicedToArray(_ref11, 2),
+          k = _ref12[0],
+          v = _ref12[1];
         return result.setAttribute(k, v);
       });
       for (let child of elem.children) {
@@ -4061,11 +4092,11 @@ section.${c}>footer { z-index: 1; }
       return this.toHTML(elem, ns.mathML, "mtable", children);
     }
     toH(elem, ns, tagName) {
-      var _elem$cssStyle2;
+      var _elem$cssStyle3;
       let children = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
-      const _ref9 = (_elem$cssStyle2 = elem.cssStyle) !== null && _elem$cssStyle2 !== void 0 ? _elem$cssStyle2 : {},
-        lang = _ref9["$lang"],
-        style = _objectWithoutProperties(_ref9, _excluded2);
+      const _ref13 = (_elem$cssStyle3 = elem.cssStyle) !== null && _elem$cssStyle3 !== void 0 ? _elem$cssStyle3 : {},
+        lang = _ref13["$lang"],
+        style = _objectWithoutProperties(_ref13, _excluded2);
       const className = cx(elem.className, elem.styleName && this.processStyleName(elem.styleName));
       return {
         ns,

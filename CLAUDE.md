@@ -30,12 +30,15 @@ dist/ is committed to git.
 
 Gotchas:
 
+- Legacy justify: WPS-authored docs with `compatibilityMode ≤ 11` (Word 2003 rules, settings.xml) expand space runs on the last line of justified paragraphs (密级…发文字号 header lines). The renderer emulates this with `text-align-last: justify`, applied per-paragraph in renderParagraph only when the paragraph's effective align is justify AND its text contains an interior 2+-space gap — otherwise every justified body paragraph's last line would be stretched.
 - UMD outputs are Babel-downleveled via `getBabelOutputPlugin` (output-level, Chrome 76 / FF 78 / Safari 13 / Edge 79 targets, `modules: false`) — viewer embedding targets legacy browsers. The `.mjs` artifacts keep ES2020 syntax.
 - Terser folds `cond ? .5 : 1` into `cond?.5:1` — the `?.` contract check must use `/\?\.(?!\d)/` to avoid false positives.
 
 ## Viewer (viewer/ → dist/)
 
-Chromeless iframe-embeddable reader: `viewer.html?file=<url>[&scale=fit|75|0.75][&thumbs=1|0]`. WPS-style toolbar (pager, zoom, download); toolbar shows only after a successful load; zoom is instant pure CSS transform on `.docx-wrapper` (no re-render). Chrome 76 classic-script constraints apply (no `?.`/`??`/inset/flex-gap/aspect-ratio).
+Chromeless iframe-embeddable reader: `viewer.html?file=<url>[&scale=fit|75|0.75][&thumbs=1|0][&filename=<name>]`. WPS-style toolbar (pager, zoom, download); toolbar shows only after a successful load; zoom is instant pure CSS transform on `.docx-wrapper` (no re-render). Chrome 76 classic-script constraints apply (no `?.`/`??`/inset/flex-gap/aspect-ratio).
+
+- Only OOXML zip packages are renderable; OLE2 binaries (old .doc, and .wps — still the default even for modern WPS Office) are detected by magic bytes (D0 CF 11 E0) in openBuffer and get a targeted "save as .docx" error instead of a JSZip failure.
 
 - Renders with `paginate: true` — content is re-flowed into page-sized sections by `src/pagination.ts` (post-render DOM pass: tables split by row, paragraphs by line via Range rects; continuation fragments get a `docx-continuation` class that suppresses indent/list markers). The library waits for `document.fonts.ready` before measuring.
 - Fonts: optional `fonts.json` next to viewer.html (`[{name, src, weight?, style?}]`, injected as `@font-face` via the library `fonts` option) — tier order: docx-embedded fonts > fonts.json > system fonts.

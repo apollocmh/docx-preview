@@ -1023,6 +1023,15 @@ function parseSettings(elem, xml) {
             case "autoHyphenation":
                 result.autoHyphenation = xml.boolAttr(el, "val");
                 break;
+            case "compat":
+                for (let c of xml.elements(el)) {
+                    if (c.localName == "compatSetting"
+                        && xml.attr(c, "name") == "compatibilityMode"
+                        && (xml.attr(c, "uri") ?? "").includes("schemas.microsoft.com/office/word")) {
+                        result.compatMode = xml.intAttr(c, "val", null);
+                    }
+                }
+                break;
         }
     }
     return result;
@@ -2534,12 +2543,13 @@ class DocumentParser {
             style["text-decoration-color"] = col;
     }
     parseFont(node, style) {
-        var ascii = globalXmlParser.attr(node, "ascii");
-        var asciiTheme = values.themeValue(node, "asciiTheme") ?? values.themeValue(node, "hAnsiTheme");
+        var ascii = globalXmlParser.attr(node, "ascii") ?? globalXmlParser.attr(node, "hAnsi")
+            ?? values.themeValue(node, "asciiTheme") ?? values.themeValue(node, "hAnsiTheme");
         var eastAsia = globalXmlParser.attr(node, "eastAsia") ?? values.themeValue(node, "eastAsiaTheme");
-        var fonts = [ascii, asciiTheme, eastAsia].filter(x => x).map(x => encloseFontFamily(x));
-        if (fonts.length > 0)
-            style["font-family"] = [...new Set(fonts)].join(', ');
+        if (ascii)
+            style["--docx-font-ascii"] = encloseFontFamily(ascii);
+        if (eastAsia)
+            style["--docx-font-ea"] = encloseFontFamily(eastAsia);
     }
     parseIndentation(node, style) {
         var firstLine = globalXmlParser.lengthAttr(node, "firstLine");
@@ -2888,7 +2898,12 @@ function h(elem) {
             result.setAttribute("style", style);
         }
         else {
-            Object.assign(result.style, style);
+            for (const [key, value] of Object.entries(style)) {
+                if (key.startsWith("--"))
+                    result.style.setProperty(key, value);
+                else
+                    result.style[key] = value;
+            }
         }
     }
     if (props) {
@@ -2918,6 +2933,7 @@ class HtmlRenderer {
         this.currentEndnoteIds = [];
         this.usedHederFooterParts = [];
         this.currentTabs = [];
+        this.legacyCompat = false;
         this.commentMap = {};
         this.tasks = [];
         this.postRenderTasks = [];
@@ -2954,6 +2970,8 @@ class HtmlRenderer {
         }
         if (document.settingsPart) {
             this.defaultTabSize = document.settingsPart.settings?.defaultTabStop;
+            const compatMode = document.settingsPart.settings?.compatMode;
+            this.legacyCompat = compatMode != null && compatMode <= 11;
         }
         if (!options.ignoreFonts && document.fontTablePart)
             result.push(...await this.renderFontTable(document.fontTablePart));
@@ -3029,6 +3047,8 @@ class HtmlRenderer {
     }
     processStyles(styles) {
         const stylesMap = keyBy(styles.filter(x => x.id != null), x => x.id);
+        this.defaultParagraphStyle = styles.find(s => s.isDefault && s.target == "p");
+        this.docDefaultsStyle = styles.find(s => s.id == null);
         for (const style of styles.filter(x => x.basedOn)) {
             var baseStyle = stylesMap[style.basedOn];
             if (baseStyle) {
@@ -3286,6 +3306,8 @@ class HtmlRenderer {
         }
         var styleText = `${wrapperStyle}
 .${c} { color: black; hyphens: auto; text-underline-position: from-font; }
+.${c} { --docx-font-ascii: serif; --docx-font-ea: serif; }
+.${c}, .${c} * { font-family: var(--docx-font-ascii), var(--docx-font-ea); }
 section.${c} { box-sizing: border-box; display: flex; flex-flow: column nowrap; position: relative; overflow: hidden; }
 section.${c}>article { margin-bottom: auto; z-index: 1; }
 section.${c}>footer { z-index: 1; }
@@ -3537,7 +3559,20 @@ section.${c}>footer { z-index: 1; }
         if (numbering) {
             result.classList.add(this.numberingClass(numbering.id, numbering.level));
         }
+        if (this.legacyCompat && this.textAlignOf(elem) === "justify"
+            && / {2,}| {2,}|　/.test(result.textContent)) {
+            result.style.setProperty("text-align-last", "justify");
+        }
         return result;
+    }
+    textAlignOf(elem) {
+        if (elem.cssStyle?.["text-align"])
+            return elem.cssStyle["text-align"];
+        const from = (s) => s?.styles?.find(x => x.target == "p")?.values?.["text-align"];
+        return from(this.findStyle(elem.styleName))
+            ?? from(this.defaultParagraphStyle)
+            ?? from(this.docDefaultsStyle)
+            ?? null;
     }
     renderHyperlink(elem) {
         const res = this.toH(elem, ns.html, "a");

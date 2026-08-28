@@ -63,6 +63,10 @@ export class HtmlRenderer {
 	defaultTabSize: string;
 	currentTabs: any[] = [];
 
+	legacyCompat: boolean = false;
+	private defaultParagraphStyle: IDomStyle;
+	private docDefaultsStyle: IDomStyle;
+
 	commentHighlight: any;
 	commentMap: Record<string, Range> = {};
 
@@ -111,6 +115,12 @@ export class HtmlRenderer {
 
 		if (document.settingsPart) {
 			this.defaultTabSize = document.settingsPart.settings?.defaultTabStop;
+
+			// Word 2003 layout rules (compatMode 11 — typical for WPS-authored
+			// documents) expand space runs even on the last line of justified
+			// paragraphs; see renderParagraph for the actual application.
+			const compatMode = document.settingsPart.settings?.compatMode;
+			this.legacyCompat = compatMode != null && compatMode <= 11;
 		}
 
 		if (!options.ignoreFonts && document.fontTablePart)
@@ -208,6 +218,9 @@ export class HtmlRenderer {
 
 	processStyles(styles: IDomStyle[]) {
 		const stylesMap = keyBy(styles.filter(x => x.id != null), x => x.id);
+
+		this.defaultParagraphStyle = styles.find(s => s.isDefault && s.target == "p");
+		this.docDefaultsStyle = styles.find(s => s.id == null);
 
 		for (const style of styles.filter(x => x.basedOn)) {
 			var baseStyle = stylesMap[style.basedOn];
@@ -936,7 +949,34 @@ section.${c}>footer { z-index: 1; }
 			result.classList.add(this.numberingClass(numbering.id, numbering.level));
 		}
 
+		// Legacy Word 2003 layout (compatMode 11, typical for WPS-authored
+		// documents) expands space runs even on the last line of a justified
+		// paragraph — e.g. the 密级…发文字号 header line spread across the
+		// text width by a run of spaces. CSS justify never stretches the last
+		// line, so opt such paragraphs into text-align-last, but only when
+		// they actually contain a deliberate interior space gap (otherwise
+		// every justified body paragraph's last line would be stretched).
+		if (this.legacyCompat && this.textAlignOf(elem) === "justify"
+			&& / {2,}| {2,}|　/.test(result.textContent)) {
+			result.style.setProperty("text-align-last", "justify");
+		}
+
 		return result;
+	}
+
+	/** Effective text-align of a paragraph: direct formatting, then its
+	 * style, then the default paragraph style, then docDefaults. */
+	private textAlignOf(elem: WmlParagraph): string | null {
+		if (elem.cssStyle?.["text-align"])
+			return elem.cssStyle["text-align"];
+
+		const from = (s: IDomStyle) =>
+			s?.styles?.find(x => x.target == "p")?.values?.["text-align"];
+
+		return from(this.findStyle(elem.styleName))
+			?? from(this.defaultParagraphStyle)
+			?? from(this.docDefaultsStyle)
+			?? null;
 	}
 
 	renderHyperlink(elem: WmlHyperlink) {

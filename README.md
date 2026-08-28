@@ -46,7 +46,12 @@ Standalone viewer
 <iframe src="viewer.html?file=...&scale=fit | 75 | 0.75"></iframe>
 <!-- optional initial thumbnail sidebar: shown (default) or hidden -->
 <iframe src="viewer.html?file=...&thumbs=1 | 0"></iframe>
+<!-- optional explicit document name (download file name + title) for
+     opaque media-library URLs -->
+<iframe src="viewer.html?file=...&filename=report.docx"></iframe>
 ```
+
+Legacy binary documents (old `.doc`, and `.wps` — which even recent WPS Office still saves as an OLE2 binary by default) are detected upfront and reported with a clear "save as .docx" message; only OOXML packages are renderable.
 
 Build it with `npm run build:release` (library artifacts + viewer copied into `dist/`; `jszip.min.js` is included so no CDN is needed). GitHub Releases attach the same files: pushes to `master` refresh the rolling `latest` prerelease, `v*` tags publish a stable release. For local development, `npm run dev:viewer` builds the viewer and serves the repo at `http://localhost:8080/dist/viewer.html?file=<path-or-url>`.
 

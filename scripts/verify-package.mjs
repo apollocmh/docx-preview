@@ -63,11 +63,20 @@ for (const fileName of ['viewer.html', 'viewer.js', 'viewer.css', 'jszip.min.js'
   assert.equal(existsSync(distUrl(fileName)), true, `dist/${fileName} is missing`);
 }
 const viewerHtml = await readDist('viewer.html');
-assert.equal(
-  viewerHtml.includes('./docx-preview.js'),
-  true,
-  'viewer.html does not reference the UMD artifact',
-);
+// copy-viewer rewrites the reference to the minified build when present.
+const umdRef = viewerHtml.includes('./docx-preview.min.js')
+  ? './docx-preview.min.js'
+  : viewerHtml.includes('./docx-preview.js')
+    ? './docx-preview.js'
+    : null;
+assert.equal(umdRef != null, true, 'viewer.html does not reference a UMD artifact');
+if (umdRef) {
+  assert.equal(
+    existsSync(distUrl(umdRef.slice(2))),
+    true,
+    `viewer.html references ${umdRef} but the file is missing from dist/`,
+  );
+}
 assert.equal(
   viewerHtml.includes('./viewer.js') && viewerHtml.includes('./viewer.css'),
   true,
@@ -78,5 +87,9 @@ assert.equal(
   true,
   'viewer.html must load jszip.min.js before the UMD artifact',
 );
+
+// dist/viewer.js ships minified: no block comments, single-line output.
+const viewerJs = await readDist('viewer.js');
+assert.equal(viewerJs.includes('/*'), false, 'dist/viewer.js is not minified');
 
 console.log('Verified UMD/ES library artifacts and the demo viewer package.');
