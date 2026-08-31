@@ -44,5 +44,5 @@ createServer(async (req, res) => {
     res.writeHead(404).end('Not Found');
   }
 }).listen(port, () => {
-  console.log(`viewer dev server: http://localhost:${port}/dist/viewer.html?file=<url-or-path>`);
+  console.log(`viewer dev server: http://localhost:${port}/dist/viewer/viewer.html?file=<url-or-path>`);
 });

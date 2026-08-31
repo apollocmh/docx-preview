@@ -24,7 +24,7 @@ dist/ is committed to git.
 
 - `npm run build` — dev UMD only (upstream semantic, unchanged)
 - `npm run build-prod` — all four artifacts: `docx-preview.js` / `.min.js` (UMD, global `docx`) + `.mjs` / `.min.mjs`
-- `npm run build:viewer` — copies `viewer/*` + `node_modules/jszip/dist/jszip.min.js` into dist/
+- `npm run build:viewer` — builds the viewer package into `dist/viewer/`: minified `viewer.html`, `fonts.json`, and versioned assets `<version>/iie-preview-docx-viewer.min.js` (single bundle: jszip + docx-preview UMD + viewer app, concatenated in dependency order) / `.min.css`. Also removes the legacy flat layout (dist/viewer.html etc.).
 - `npm run build:release` — build-prod + viewer (what CI runs)
 - `npm run test:package` — contract gate (UMD syntax, exports, viewer files)
 
@@ -37,13 +37,13 @@ Gotchas:
 - UMD outputs are Babel-downleveled via `getBabelOutputPlugin` (output-level, Chrome 76 / FF 78 / Safari 13 / Edge 79 targets, `modules: false`) — viewer embedding targets legacy browsers. The `.mjs` artifacts keep ES2020 syntax.
 - Terser folds `cond ? .5 : 1` into `cond?.5:1` — the `?.` contract check must use `/\?\.(?!\d)/` to avoid false positives.
 
-## Viewer (viewer/ → dist/)
+## Viewer (viewer/ → dist/viewer/)
 
 Chromeless iframe-embeddable reader: `viewer.html?file=<url>[&scale=fit|75|0.75][&thumbs=1|0][&filename=<name>]`. WPS-style toolbar (pager, zoom, download); toolbar shows only after a successful load; zoom is instant pure CSS transform on `.docx-wrapper` (no re-render). Chrome 76 classic-script constraints apply (no `?.`/`??`/inset/flex-gap/aspect-ratio).
 
 - Only OOXML zip packages are renderable; OLE2 binaries (old .doc, and .wps — still the default even for modern WPS Office) are detected by magic bytes (D0 CF 11 E0) in openBuffer and get a targeted "save as .docx" error instead of a JSZip failure.
 
-- Renders with `paginate: true` — content is re-flowed into page-sized sections by `src/pagination.ts` (post-render DOM pass: tables split by row, paragraphs by line via Range rects; continuation fragments get a `docx-continuation` class that suppresses indent/list markers). The library waits for `document.fonts.ready` before measuring.
+- Renders with `paginate: true` — content is re-flowed into page-sized sections by `src/pagination.ts` (post-render DOM pass: tables split by row, paragraphs by line via Range rects; continuation fragments get a `docx-continuation` class that suppresses indent/list markers). The library waits for `document.fonts.ready` before measuring. New page shells MUST be attached to the DOM as they are created — detached nodes have no layout (scrollHeight/Range rects are 0), so packing silently degenerates into "everything lands on page 2" (invisible in 2-page docs, obvious at 3+).
 - Fonts: optional `fonts.json` next to viewer.html (`[{name, src, weight?, style?}]`, injected as `@font-face` via the library `fonts` option) — tier order: docx-embedded fonts > fonts.json > system fonts.
 - fit mode = fit-width capped at 100% of natural width (never upscales).
 - Thumbnail sidebar (`#thumbs`): deep clones of page sections shrunk with CSS transform (no canvas/re-render). Clones live outside `.docx-wrapper`, so list markers must be suppressed in CSS (`.thumbs .docx p::before`) — CSS counters keep incrementing across clones and would show wrong numbers. `buildThumbs()` must call `syncThumbs()` itself; `applyScale()` runs before the thumbnails exist.

@@ -58,38 +58,50 @@ assert.equal(
 );
 
 // ── Viewer files ──────────────────────────────────────────────────────────
+// Layout: dist/viewer/viewer.html + dist/viewer/<version>/iie-preview-docx-viewer.min.{js,css}
 
-for (const fileName of ['viewer.html', 'viewer.js', 'viewer.css', 'jszip.min.js']) {
+const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const VIEWER_JS = 'iie-preview-docx-viewer.min.js';
+const VIEWER_CSS = 'iie-preview-docx-viewer.min.css';
+
+for (const fileName of [
+  'viewer/viewer.html',
+  'viewer/fonts.json',
+  `viewer/${pkg.version}/${VIEWER_JS}`,
+  `viewer/${pkg.version}/${VIEWER_CSS}`,
+]) {
   assert.equal(existsSync(distUrl(fileName)), true, `dist/${fileName} is missing`);
 }
-const viewerHtml = await readDist('viewer.html');
-// copy-viewer rewrites the reference to the minified build when present.
-const umdRef = viewerHtml.includes('./docx-preview.min.js')
-  ? './docx-preview.min.js'
-  : viewerHtml.includes('./docx-preview.js')
-    ? './docx-preview.js'
-    : null;
-assert.equal(umdRef != null, true, 'viewer.html does not reference a UMD artifact');
-if (umdRef) {
-  assert.equal(
-    existsSync(distUrl(umdRef.slice(2))),
-    true,
-    `viewer.html references ${umdRef} but the file is missing from dist/`,
-  );
-}
+
+const viewerHtml = await readDist('viewer/viewer.html');
 assert.equal(
-  viewerHtml.includes('./viewer.js') && viewerHtml.includes('./viewer.css'),
+  viewerHtml.includes(`./${pkg.version}/${VIEWER_JS}`),
   true,
-  'viewer.html must reference viewer.js / viewer.css',
+  'viewer.html does not reference the versioned JS bundle',
 );
 assert.equal(
-  viewerHtml.includes('./jszip.min.js'),
+  viewerHtml.includes(`./${pkg.version}/${VIEWER_CSS}`),
   true,
-  'viewer.html must load jszip.min.js before the UMD artifact',
+  'viewer.html does not reference the versioned CSS',
+);
+assert.equal(viewerHtml.includes('<!--'), false, 'dist/viewer/viewer.html is not minified');
+
+// The bundle must contain all three classic scripts in dependency order:
+// jszip (global JSZip) -> docx-preview UMD (global docx) -> viewer app.
+const bundle = await readDist(`viewer/${pkg.version}/${VIEWER_JS}`);
+const iJszip = bundle.indexOf('JSZip');
+const iDocx = bundle.indexOf('docx-preview');
+const iViewer = bundle.indexOf('error-banner');
+assert.equal(iJszip >= 0, true, 'JS bundle is missing jszip');
+assert.equal(iDocx >= 0, true, 'JS bundle is missing the docx-preview UMD');
+assert.equal(iViewer >= 0, true, 'JS bundle is missing the viewer app');
+assert.equal(
+  iJszip < iDocx && iDocx < iViewer,
+  true,
+  'JS bundle scripts are in the wrong order (jszip < docx-preview < viewer required)',
 );
 
-// dist/viewer.js ships minified: no block comments, single-line output.
-const viewerJs = await readDist('viewer.js');
-assert.equal(viewerJs.includes('/*'), false, 'dist/viewer.js is not minified');
+const viewerCss = await readDist(`viewer/${pkg.version}/${VIEWER_CSS}`);
+assert.equal(viewerCss.includes('/*'), false, 'viewer CSS is not minified');
 
 console.log('Verified UMD/ES library artifacts and the demo viewer package.');

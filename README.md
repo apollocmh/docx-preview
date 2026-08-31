@@ -38,7 +38,7 @@ Usage
 
 Standalone viewer
 -----
-`dist/viewer.html` is a self-hosted, iframe-embeddable document reader (toolbar with pager, zoom and download). It loads a document from a URL parameter — the file server must allow cross-origin requests (CORS):
+`dist/viewer/viewer.html` is a self-hosted, iframe-embeddable document reader (toolbar with pager, zoom and download). It loads a document from a URL parameter — the file server must allow cross-origin requests (CORS):
 
 ```html
 <iframe src="viewer.html?file=https://example.com/document.docx"></iframe>
@@ -53,7 +53,7 @@ Standalone viewer
 
 Legacy binary documents (old `.doc`, and `.wps` — which even recent WPS Office still saves as an OLE2 binary by default) are detected upfront and reported with a clear "save as .docx" message; only OOXML packages are renderable.
 
-Build it with `npm run build:release` (library artifacts + viewer copied into `dist/`; `jszip.min.js` is included so no CDN is needed). GitHub Releases attach the same files: pushes to `master` refresh the rolling `latest` prerelease, `v*` tags publish a stable release. For local development, `npm run dev:viewer` builds the viewer and serves the repo at `http://localhost:8080/dist/viewer.html?file=<path-or-url>`.
+Build it with `npm run build:release` (library artifacts + viewer package). The viewer ships as `dist/viewer/viewer.html` plus versioned, cache-friendly assets `dist/viewer/<version>/iie-preview-docx-viewer.min.{js,css}` — the JS is a single bundle (jszip + docx-preview UMD + viewer app, so no CDN is needed). GitHub Releases attach the same files: pushes to `master` refresh the rolling `latest` prerelease, `v*` tags publish a stable release. For local development, `npm run dev:viewer` builds the viewer and serves the repo at `http://localhost:8080/dist/viewer/viewer.html?file=<path-or-url>`.
 
 The viewer re-flows documents into pages (the `paginate` option). Fonts resolve in three tiers: fonts embedded in the .docx itself, then an optional `fonts.json` manifest placed next to `viewer.html`, then system fonts. The manifest is an array of webfont definitions injected as `@font-face`:
 

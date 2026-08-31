@@ -1524,7 +1524,10 @@ export class DocumentParser {
 					break;
 
 				case "atLeast":
-					style["line-height"] = `calc(100% + ${line / 20}pt)`;
+					// Word: line height = max(natural, X). calc(100% + X)
+					// renders nearly double that; plain X is the closer
+					// approximation for typical (CJK) documents.
+					style["line-height"] = `${line / 20}pt`;
 					break;
 
 				default:

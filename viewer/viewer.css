@@ -498,3 +498,6 @@ body {
     transform: rotate(360deg);
   }
 }
+.docx span[style*="--docx-font-ea"][style*="方正仿宋_GBK"] {
+    font-weight: 500 !important;
+}

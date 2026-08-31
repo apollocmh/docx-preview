@@ -70,6 +70,7 @@ function paginateSection(section: HTMLElement, className: string): number {
 
 	const pages: HTMLElement[] = [section]; // the original section becomes page 1
 	let currentArticle = article;
+	let lastPage = section;
 
 	function newPage(): void {
 		const shell = section.cloneNode(false) as HTMLElement;
@@ -77,6 +78,10 @@ function paginateSection(section: HTMLElement, className: string): number {
 		const pageArticle = article.cloneNode(false) as HTMLElement;
 		shell.appendChild(pageArticle);
 		if (footer) shell.appendChild(footer.cloneNode(true));
+		// Attach immediately: packing the page requires live layout
+		// (scrollHeight/Range rects are all zero on detached nodes).
+		lastPage.after(shell);
+		lastPage = shell;
 		pages.push(shell);
 		currentArticle = pageArticle;
 	}
@@ -94,6 +99,12 @@ function paginateSection(section: HTMLElement, className: string): number {
 
 		// Overflow: try to split the block at the page boundary.
 		const tail = splitBlock(block, bottomLimit(), className);
+		if (tail === "allfit") continue; // benign box overshoot — keep it here
+		if (tail) {
+			blocks.splice(i + 1, 0, tail);
+			newPage();
+			continue;
+		}
 		if (tail) {
 			blocks.splice(i + 1, 0, tail);
 			newPage();
@@ -114,18 +125,11 @@ function paginateSection(section: HTMLElement, className: string): number {
 
 	// Attach section-level notes to the last page (before its footer).
 	if (notes.length > 0 && pages.length > 1) {
-		const lastPage = pages[pages.length - 1];
 		const lastFooter = lastPage.querySelector(":scope > footer");
 		for (const ol of notes) lastPage.insertBefore(ol, lastFooter);
 	}
 
 	if (pages.length <= 1) return 0;
-
-	let ref = section;
-	for (let i = 1; i < pages.length; i++) {
-		ref.after(pages[i]);
-		ref = pages[i];
-	}
 
 	return pages.length;
 }
@@ -133,15 +137,18 @@ function paginateSection(section: HTMLElement, className: string): number {
 /**
  * Splits `block` (already appended to a page and known to overflow) so its
  * head fits above `bottomLimit` (viewport coordinate). Returns the detached
- * tail fragment, or null when the block can't usefully be split here.
+ * tail fragment, "allfit" when the block's content doesn't actually
+ * overflow (keep it on the current page), or null when the block can't
+ * usefully be split here.
  */
-function splitBlock(block: HTMLElement, bottomLimit: number, className: string): HTMLElement | null {
+function splitBlock(block: HTMLElement, bottomLimit: number, className: string): HTMLElement | "allfit" | null {
 	if (block.tagName === "TABLE") {
 		return splitTable(block as HTMLTableElement, bottomLimit);
 	}
 
 	const pos = findTextSplitOffset(block, bottomLimit);
-	if (!pos) return null;
+	if (pos === "allfit") return "allfit";
+	if (pos === null) return null;
 
 	const tail = splitAt(block, pos.node, pos.offset);
 	tail.classList.add(`${className}-continuation`);
@@ -174,17 +181,22 @@ function splitTable(table: HTMLTableElement, bottomLimit: number): HTMLElement |
 /**
  * Finds the latest text position inside `el` that still renders above
  * `bottomLimit`, by walking text nodes in order and binary-searching each
- * one with Range rects. Returns null when even the first character
- * overflows.
+ * one with Range rects. Returns:
+ * - { node, offset } — split here;
+ * - "allfit" — every text node fits; the overflow comes from the block's
+ *   own box (min-height overshoot), not its content, so it should stay;
+ * - null — even the first character overflows (or there is no text).
  */
-function findTextSplitOffset(el: HTMLElement, bottomLimit: number): { node: Text, offset: number } | null {
+function findTextSplitOffset(el: HTMLElement, bottomLimit: number): { node: Text, offset: number } | "allfit" | null {
 	const doc = el.ownerDocument;
 	const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
 	const range = doc.createRange();
 	let hasFittingContent = false;
+	let sawText = false;
 
 	for (let node = walker.nextNode() as Text; node; node = walker.nextNode() as Text) {
 		if (node.length === 0) continue;
+		sawText = true;
 
 		let lo = 0, hi = node.length, fit = 0;
 		while (lo <= hi) {
@@ -219,7 +231,7 @@ function findTextSplitOffset(el: HTMLElement, bottomLimit: number): { node: Text
 		hasFittingContent = true;
 	}
 
-	return null;
+	return sawText ? "allfit" : null;
 }
 
 /**
@@ -234,21 +246,29 @@ function splitAt(el: HTMLElement, textNode: Text, offset: number): HTMLElement {
 	return tail;
 }
 
-/** Moves `node`, its following siblings, and the following siblings of every
- * ancestor up to `root`, into a parallel clone hierarchy under `tailRoot`. */
+/** Moves the split point's following content into a parallel clone
+ * hierarchy under `tailRoot`: `node` and its following siblings go into a
+ * clone of their parent, and each ancestor up to `root` contributes a clone
+ * plus its following siblings. The ORIGINAL ancestors stay in the head —
+ * moving them would rip the head's split-span text out (and reverse the
+ * order of the two text halves in the tail). */
 function moveTail(node: Node, root: HTMLElement, tailRoot: HTMLElement): void {
-	const parent = node.parentNode as HTMLElement;
+	let child = node;
+	let container = tailRoot;
 
-	if (parent === root) {
-		tailRoot.appendChild(node);
-		while (node.nextSibling) tailRoot.appendChild(node.nextSibling);
-		return;
+	while (child.parentNode && child.parentNode !== root) {
+		const parent = child.parentNode as HTMLElement;
+		const parentClone = parent.cloneNode(false) as HTMLElement;
+		container.appendChild(parentClone);
+		parentClone.appendChild(child);
+		while (child.nextSibling) parentClone.appendChild(child.nextSibling);
+		child = parent;
+		container = parentClone;
 	}
 
-	const parentClone = parent.cloneNode(false) as HTMLElement;
-	tailRoot.appendChild(parentClone);
-	parentClone.appendChild(node);
-	while (node.nextSibling) parentClone.appendChild(node.nextSibling);
-
-	moveTail(parent, root, tailRoot);
+	// `child` is now a direct child of root. If the loop never ran, `node`
+	// itself was that direct child and still needs moving; otherwise its
+	// clone is already in place and only following siblings move over.
+	if (child === node) tailRoot.appendChild(child);
+	while (child.nextSibling) tailRoot.appendChild(child.nextSibling);
 }
