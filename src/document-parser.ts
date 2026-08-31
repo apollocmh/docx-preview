@@ -1080,6 +1080,32 @@ export class DocumentParser {
 		var rightFromText = xml.lengthAttr(node, "rightFromText");
 		var leftFromText = xml.lengthAttr(node, "leftFromText");
 
+		var horzAnchor = xml.attr(node, "horzAnchor"); // margin | page | text
+		var vertAnchor = xml.attr(node, "vertAnchor");
+		var tblpXSpec = xml.attr(node, "tblpXSpec");   // left | center | right | ...
+		var tblpYSpec = xml.attr(node, "tblpYSpec");   // top | center | bottom | ...
+
+		// Bottom-anchored floating tables (公文版记行: vertAnchor="margin" +
+		// tblpYSpec="bottom") pin to the bottom of the text area. Page
+		// sections are position:relative and expose their paddings as
+		// --docx-pad-* variables (see createPageElement), so the table is
+		// taken out of normal flow and anchored absolutely.
+		if (tblpYSpec == "bottom" && vertAnchor != "text") {
+			table.cssStyle["position"] = "absolute";
+			table.cssStyle["bottom"] = vertAnchor == "page" ? "0px" : "var(--docx-pad-bottom, 0px)";
+
+			if (tblpXSpec == "right") {
+				table.cssStyle["right"] = horzAnchor == "page" ? "0px" : "var(--docx-pad-right, 0px)";
+			} else if (tblpXSpec == "center") {
+				table.cssStyle["left"] = "50%";
+				table.cssStyle["transform"] = "translateX(-50%)";
+			} else {
+				table.cssStyle["left"] = horzAnchor == "page" ? "0px" : "var(--docx-pad-left, 0px)";
+			}
+
+			return;
+		}
+
 		table.cssStyle["float"] = 'left';
 		table.cssStyle["margin-bottom"] = values.addSize(table.cssStyle["margin-bottom"], bottomFromText);
 		table.cssStyle["margin-left"] = values.addSize(table.cssStyle["margin-left"], leftFromText);

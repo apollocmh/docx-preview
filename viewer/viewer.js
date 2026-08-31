@@ -439,6 +439,9 @@
         return api.renderAsync(buffer, els.docBox, undefined, {
           hideWrapperOnPrint: true,
           paginate: true,
+          // 'experimental' only gates tab-stop computation, which 公文版记
+          // lines (right-aligned tab stops) depend on.
+          experimental: true,
           fonts: fonts || undefined,
         });
       })

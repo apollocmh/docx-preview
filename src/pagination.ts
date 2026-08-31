@@ -32,6 +32,18 @@ export function paginateWrapper(container: HTMLElement, className: string): numb
 			`.${className} .${className}-continuation { text-indent: 0 !important; }` +
 			`.${className} .${className}-continuation::before { content: none !important; }`;
 		container.prepend(style);
+
+		// Pages created by splitting share the original page's header/footer,
+		// whose PAGE/NUMPAGES fields were resolved before the split — renumber
+		// across the final page list.
+		const pages = container.querySelectorAll(`section.${className}`);
+		const total = `${pages.length}`;
+		pages.forEach((page, i) => {
+			for (const el of Array.from(page.querySelectorAll(`.${className}-field-page`)))
+				el.textContent = `${i + 1}`;
+			for (const el of Array.from(page.querySelectorAll(`.${className}-field-numpages`)))
+				el.textContent = total;
+		});
 	}
 
 	return pageCount;

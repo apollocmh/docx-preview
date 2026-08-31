@@ -23,6 +23,7 @@ import { BaseHeaderFooterPart } from './header-footer/parts';
 import { Part } from './common/part';
 import { VmlElement } from './vml/vml';
 import { WmlCommentRangeStart, WmlCommentReference } from './comments/elements';
+import { WmlFieldChar, WmlInstructionText } from './document/fields';
 import { cx, h, ns } from './html';
 
 interface CellPos {
@@ -312,6 +313,13 @@ export class HtmlRenderer {
 				style.paddingRight = props.pageMargins.right;
 				style.paddingTop = props.pageMargins.top;
 				style.paddingBottom = props.pageMargins.bottom;
+
+				// Exposed for absolutely-positioned content anchored to the
+				// text area (floating tables with tblpYSpec="bottom" etc.).
+				style["--docx-pad-left"] = props.pageMargins.left;
+				style["--docx-pad-right"] = props.pageMargins.right;
+				style["--docx-pad-top"] = props.pageMargins.top;
+				style["--docx-pad-bottom"] = props.pageMargins.bottom;
 			}
 
 			if (props.pageSize) {
@@ -381,6 +389,8 @@ export class HtmlRenderer {
 			result.push(pageElement);
 			prevProps = props;
 		}
+
+		this.resolvePageFields(result);
 
 		return result;
 	}
@@ -937,7 +947,57 @@ section.${c}>footer { z-index: 1; }
 		return this.h({ ns, tagName, children: this.renderElements(elem.children), ...props });
 	}
 
+	/**
+	 * Marks the cached-result runs of PAGE / NUMPAGES complex fields with a
+	 * marker class (`docx-field-page` / `docx-field-numpages`), so the actual
+	 * numbers can be substituted once page layout is final (see the end of
+	 * renderSections and pagination.ts). Field runs themselves are skipped
+	 * by renderRun, leaving the cached value as a plain run between the
+	 * separate and end markers.
+	 */
+	private markPageFieldRuns(elem: WmlParagraph) {
+		let instruction: string = null;
+		let inResult = false;
+
+		for (const run of elem.children ?? []) {
+			if (run.type != DomType.Run) continue;
+
+			for (const sub of run.children ?? []) {
+				if (sub.type == DomType.ComplexField) {
+					const charType = (sub as WmlFieldChar).charType;
+					if (charType == "begin") { instruction = null; inResult = false; }
+					else if (charType == "separate") inResult = true;
+					else if (charType == "end") { instruction = null; inResult = false; }
+				} else if (sub.type == DomType.Instruction) {
+					instruction = (sub as WmlInstructionText).text?.trim().split(/\s/)[0]?.toUpperCase();
+				}
+			}
+
+			if (inResult && (instruction == "PAGE" || instruction == "NUMPAGES") && !(run as WmlRun).fieldRun) {
+				run.className = cx(run.className, `${this.className}-field-${instruction.toLowerCase()}`);
+			}
+		}
+	}
+
+	/**
+	 * Substitutes final page numbers into PAGE / NUMPAGES field markers
+	 * across the given page sections. Numbering is continuous from 1 —
+	 * per-section restarts (w:pgNumType) are not modeled yet.
+	 */
+	private resolvePageFields(pages: HTMLElement[]) {
+		const total = `${pages.length}`;
+
+		pages.forEach((page, i) => {
+			for (const el of Array.from(page.querySelectorAll(`.${this.className}-field-page`)))
+				el.textContent = `${i + 1}`;
+			for (const el of Array.from(page.querySelectorAll(`.${this.className}-field-numpages`)))
+				el.textContent = total;
+		});
+	}
+
 	renderParagraph(elem: WmlParagraph) {
+		this.markPageFieldRuns(elem);
+
 		var result = this.toHTML(elem, ns.html, "p");
 
 		const style = this.findStyle(elem.styleName);

@@ -30,6 +30,9 @@ dist/ is committed to git.
 
 Gotchas:
 
+- Page fields: PAGE/NUMPAGES complex-field result runs get marker classes `docx-field-page`/`docx-field-numpages` in renderParagraph (markPageFieldRuns); numbers are substituted at the end of renderSections and re-done by pagination.ts after splitting (split pages share cloned footers). Per-section restarts (w:pgNumType) not modeled.
+- Floating tables: `tblpYSpec="bottom"` + `vertAnchor!="text"` (公文版记行) renders position:absolute, pinned via `--docx-pad-*` CSS vars that createPageElement exposes from pageMargins (absolute containing block = section padding box, so margin anchor needs the padding offset, page anchor is 0).
+- The viewer enables `experimental: true` — despite the scary name it currently gates ONLY tab-stop computation (renderTab/refreshTabStops), which right-tab 版记 lines need.
 - Legacy justify: WPS-authored docs with `compatibilityMode ≤ 11` (Word 2003 rules, settings.xml) expand space runs on the last line of justified paragraphs (密级…发文字号 header lines). The renderer emulates this with `text-align-last: justify`, applied per-paragraph in renderParagraph only when the paragraph's effective align is justify AND its text contains an interior 2+-space gap — otherwise every justified body paragraph's last line would be stretched.
 - UMD outputs are Babel-downleveled via `getBabelOutputPlugin` (output-level, Chrome 76 / FF 78 / Safari 13 / Edge 79 targets, `modules: false`) — viewer embedding targets legacy browsers. The `.mjs` artifacts keep ES2020 syntax.
 - Terser folds `cond ? .5 : 1` into `cond?.5:1` — the `?.` contract check must use `/\?\.(?!\d)/` to avoid false positives.
