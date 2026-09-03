@@ -45,6 +45,10 @@ jobs:
         run: cp viewer-dist/viewer.html viewer-dist/index.html
 
       - uses: actions/configure-pages@v6
+        with:
+          # Auto-enable Pages (Actions build) on first run — otherwise the
+          # step fails on repos where Pages was never turned on.
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v5
         with:
