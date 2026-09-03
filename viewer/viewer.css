@@ -464,6 +464,45 @@ body {
   font-size: 12.5px;
 }
 
+/* Local-file upload affordance inside the empty state. Children are spaced
+   with margins (flex gap is off-limits for the Chrome 76 target). */
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44px 40px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.drop-zone > * + * {
+  margin-top: 10px;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: #2f6feb;
+  background: #eef4ff;
+  color: #2f6feb;
+}
+
+.drop-zone .empty-title {
+  color: inherit;
+  margin-bottom: 0;
+}
+
+.empty-hint {
+  font-size: 12px;
+}
+
+.empty-example {
+  margin: 18px 0 0;
+  font-size: 12px;
+}
+
 .loading {
   position: absolute;
   top: 0;

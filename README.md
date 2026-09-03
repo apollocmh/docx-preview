@@ -38,7 +38,7 @@ await renderAsync(docData, document.getElementById('container'));
 https://apollocmh.github.io/docx-preview/
 ```
 
-通过 URL 参数加载文档：
+打开后**选择或拖入本地 DOCX 文件**即可预览——文档只在浏览器内解析，不会上传到任何服务器。也支持通过 URL 参数加载远程文档（需 CORS）：
 
 ```
 https://apollocmh.github.io/docx-preview/?file=https://example.com/test.docx

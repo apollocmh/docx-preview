@@ -4,8 +4,9 @@
  * Designed for iframe embedding (`<iframe src="viewer.html?file=...">`).
  * WPS-style reading layout: a toolbar (pager, zoom, download) on top and a
  * scrollable document in the main area. The toolbar appears only after a
- * document loads successfully. Documents load only from the `?file=` URL
- * parameter.
+ * document loads successfully. Documents load from a local file (picker or
+ * drag & drop — the demo site's primary path) or from the `?file=` URL
+ * parameter (iframe embedding).
  *
  * Vite app entry: imports the library source and stylesheet directly; the
  * build bundles jszip + docx-preview + this file into a single script.
@@ -43,6 +44,9 @@ import * as docxApi from '../src/docx-preview';
     scaleLabel: document.getElementById('scale-label'),
     scaleDropdown: document.getElementById('scale-dropdown'),
     download: document.getElementById('download'),
+    openFile: document.getElementById('open-file'),
+    fileInput: document.getElementById('file-input'),
+    dropZone: document.getElementById('drop-zone'),
     errorBanner: document.getElementById('error-banner'),
     errorTitle: document.getElementById('error-title'),
     errorDetail: document.getElementById('error-detail'),
@@ -98,6 +102,9 @@ import * as docxApi from '../src/docx-preview';
 
   var docUrl = '';
   var docName = '';
+  // Locally picked/dropped file (a Blob), kept so the download button works
+  // without a remote URL. Mutually exclusive with docUrl.
+  var docBlob = null;
   // ?filename= override: media-library URLs often end in an opaque id/hash,
   // so the caller passes the real document name explicitly (used for the
   // download file name and the document title).
@@ -498,6 +505,7 @@ import * as docxApi from '../src/docx-preview';
     setLoading(true);
 
     docUrl = fileUrl;
+    docBlob = null;
     docName = fileUrl;
     try {
       var parsed = new URL(fileUrl, location.href);
@@ -543,6 +551,25 @@ import * as docxApi from '../src/docx-preview';
           );
         }
       });
+  }
+
+  // Local file picked via the input or dropped onto the page. The File is
+  // kept as docBlob so the download button can re-serve it without a URL.
+  function openLocalFile(file) {
+    if (!file) return;
+    docUrl = '';
+    docBlob = file;
+    docName = file.name || 'document.docx';
+    filenameOverride = '';
+
+    var reader = new FileReader();
+    reader.onload = function () {
+      openBuffer(reader.result, docName);
+    };
+    reader.onerror = function () {
+      showError('读取文件失败', '浏览器无法读取「' + docName + '」,请重试。');
+    };
+    reader.readAsArrayBuffer(file);
   }
 
   // ── Wiring ──────────────────────────────────────────────────────────────
@@ -635,14 +662,64 @@ import * as docxApi from '../src/docx-preview';
   });
 
   els.download.addEventListener('click', function () {
-    if (!docUrl) return;
+    var href = docUrl;
+    var objectUrl = '';
+    if (!href && docBlob) {
+      href = objectUrl = URL.createObjectURL(docBlob);
+    }
+    if (!href) return;
     var link = document.createElement('a');
-    link.href = docUrl;
+    link.href = href;
     link.download = docName || docUrl.split('/').pop() || 'document.docx';
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    if (objectUrl) {
+      setTimeout(function () {
+        URL.revokeObjectURL(objectUrl);
+      }, 10000);
+    }
+  });
+
+  els.openFile.addEventListener('click', function () {
+    els.fileInput.click();
+  });
+
+  els.fileInput.addEventListener('change', function () {
+    openLocalFile(els.fileInput.files && els.fileInput.files[0]);
+    // Reset so picking the same file twice still fires change.
+    els.fileInput.value = '';
+  });
+
+  // Drag & drop anywhere on the page (the drop zone is only visible in the
+  // empty state, but re-loading another file must work mid-reading too).
+  function dragHasFiles(event) {
+    var types = event.dataTransfer && event.dataTransfer.types;
+    return !!types && Array.prototype.indexOf.call(types, 'Files') !== -1;
+  }
+
+  window.addEventListener('dragenter', function (event) {
+    if (!dragHasFiles(event)) return;
+    event.preventDefault();
+    els.dropZone.classList.add('drag-over');
+  });
+
+  window.addEventListener('dragover', function (event) {
+    if (!dragHasFiles(event)) return;
+    event.preventDefault();
+  });
+
+  window.addEventListener('dragleave', function (event) {
+    // relatedTarget is null only when the drag leaves the window entirely.
+    if (event.relatedTarget === null) els.dropZone.classList.remove('drag-over');
+  });
+
+  window.addEventListener('drop', function (event) {
+    if (!dragHasFiles(event)) return;
+    event.preventDefault();
+    els.dropZone.classList.remove('drag-over');
+    openLocalFile(event.dataTransfer.files && event.dataTransfer.files[0]);
   });
 
   // Fit mode follows window resizes; numeric zoom stays absolute.
