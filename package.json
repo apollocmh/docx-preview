@@ -39,7 +39,8 @@
   },
   "packageManager": "pnpm@11.0.9",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
     "jszip": ">=3.0.0"
