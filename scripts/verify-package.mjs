@@ -86,20 +86,18 @@ assert.equal(
 );
 assert.equal(viewerHtml.includes('<!--'), false, 'dist/viewer/viewer.html is not minified');
 
-// The bundle must contain all three classic scripts in dependency order:
-// jszip (global JSZip) -> docx-preview UMD (global docx) -> viewer app.
+// The bundle is one Vite/Rolldown module graph (jszip + docx-preview source
+// + viewer app), so only marker presence is asserted — bundling gives no
+// meaningful source-order guarantee.
 const bundle = await readDist(`viewer/${pkg.version}/${VIEWER_JS}`);
-const iJszip = bundle.indexOf('JSZip');
-const iDocx = bundle.indexOf('docx-preview');
-const iViewer = bundle.indexOf('error-banner');
-assert.equal(iJszip >= 0, true, 'JS bundle is missing jszip');
-assert.equal(iDocx >= 0, true, 'JS bundle is missing the docx-preview UMD');
-assert.equal(iViewer >= 0, true, 'JS bundle is missing the viewer app');
+assert.equal(bundle.includes('JSZip'), true, 'JS bundle is missing jszip');
+assert.equal(bundle.includes('error-banner'), true, 'JS bundle is missing the viewer app');
 assert.equal(
-  iJszip < iDocx && iDocx < iViewer,
-  true,
-  'JS bundle scripts are in the wrong order (jszip < docx-preview < viewer required)',
+  OPTIONAL_CHAINING.test(bundle),
+  false,
+  `${VIEWER_JS} still contains optional chaining (?.) — viewer targets Chrome 76`,
 );
+assert.equal(bundle.includes('??'), false, `${VIEWER_JS} still contains nullish coalescing (??)`);
 
 const viewerCss = await readDist(`viewer/${pkg.version}/${VIEWER_CSS}`);
 assert.equal(viewerCss.includes('/*'), false, 'viewer CSS is not minified');

@@ -13,7 +13,7 @@
       工具栏仅在文档加载成功后出现。
     -->
     <title>DOCX Viewer</title>
-    <link rel="stylesheet" href="./viewer.css" />
+    <script type="module" src="./viewer.js"></script>
   </head>
   <body>
     <div id="app" class="app">
@@ -153,13 +153,9 @@
     </div>
 
     <!--
-      运行时依赖:docx-preview 的 UMD 构建把 jszip 声明为外部依赖并通过全局
-      JSZip 解析;jszip.min.js 是从 jszip 包原样拷贝的官方浏览器构建 ——
-      全部本地自托管,无 CDN、无外网请求。
+      运行时依赖:viewer.js 是 Vite 构建入口,样式随 JS 注入;jszip 与
+      docx-preview 库源码一并打包进单文件产物 —— 全部本地自托管,无 CDN、
+      无外网请求。
     -->
-    <script src="./jszip.min.js"></script>
-    <!-- 库本体,与本包 dist/ 目录下的构建产物一致。 -->
-    <script src="./docx-preview.js"></script>
-    <script src="./viewer.js"></script>
   </body>
 </html>

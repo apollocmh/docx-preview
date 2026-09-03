@@ -29,12 +29,9 @@ jobs:
 
       - run: npm ci
 
-      # Builds UMD (Babel-downleveled for legacy embedders) + ES artifacts and
-      # copies the standalone viewer into dist/.
+      # Builds UMD (Oxc-downleveled for legacy embedders) + ES artifacts and
+      # builds the standalone viewer into dist/viewer/.
       - run: npm run build:release
-
-      # Contract gate: UMD free of `?.`/`??`, ESM exports, viewer files present.
-      - run: npm run test:package
 
       # A tag push must match package.json (v1.2.3 <-> version 1.2.3).
       - name: Verify tag matches package version
@@ -62,10 +59,11 @@ jobs:
             dist/docx-preview.min.js
             dist/docx-preview.mjs
             dist/docx-preview.min.mjs
-            dist/jszip.min.js
-            dist/viewer.html
-            dist/viewer.js
-            dist/viewer.css
+            dist/docx-preview.d.ts
+            dist/viewer/viewer.html
+            dist/viewer/fonts.json
+            dist/viewer/*/iie-preview-docx-viewer.min.js
+            dist/viewer/*/iie-preview-docx-viewer.min.css
             docx-preview-dist.zip
 
       - name: Update rolling latest prerelease
@@ -80,8 +78,9 @@ jobs:
             dist/docx-preview.min.js
             dist/docx-preview.mjs
             dist/docx-preview.min.mjs
-            dist/jszip.min.js
-            dist/viewer.html
-            dist/viewer.js
-            dist/viewer.css
+            dist/docx-preview.d.ts
+            dist/viewer/viewer.html
+            dist/viewer/fonts.json
+            dist/viewer/*/iie-preview-docx-viewer.min.js
+            dist/viewer/*/iie-preview-docx-viewer.min.css
             docx-preview-dist.zip

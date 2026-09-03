@@ -7,11 +7,12 @@
  * document loads successfully. Documents load only from the `?file=` URL
  * parameter.
  *
- * Uses the library exclusively through the `docx` UMD global exposed by
- * ./docx-preview.js (loaded via a plain <script> tag in viewer.html), so
- * this page runs without any build tooling — including when opened directly
- * from the filesystem.
+ * Vite app entry: imports the library source and stylesheet directly; the
+ * build bundles jszip + docx-preview + this file into a single script.
  */
+import './viewer.css';
+import * as docxApi from '../src/docx-preview';
+
 (function () {
   'use strict';
 
@@ -26,7 +27,7 @@
   var FIT_MAX = 1;
   var STAGE_PADDING = 24; // .stage padding on each side, see viewer.css
 
-  var api = window.docx;
+  var api = docxApi;
 
   var els = {
     toolbar: document.getElementById('toolbar'),

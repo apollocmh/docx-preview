@@ -1,26 +1,29 @@
-[![npm version](https://badge.fury.io/js/docx-preview.svg)](https://www.npmjs.com/package/docx-preview)
-[![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-blue?style=flat&logo=adguard)](https://war.ukraine.ua/)
+# @apollo-design/docx-preview
 
-# docxjs
-Docx rendering library
+将 DOCX 文档渲染为保留语义的 HTML，并附带一个可 iframe 嵌入的独立预览器。
 
-Demo - https://volodymyrbaydalka.github.io/docxjs/
+> Based on [docxjs](https://github.com/VolodymyrBaydalka/docxjs) by Volodymyr Baydalka (Apache License 2.0) — see [Credits](#credits).
 
-Goal
-----
-Goal of this project is to render/convert DOCX document into HTML document with keeping HTML semantic as much as possible. 
-That means library is limited by HTML capabilities (for example Google Docs renders *.docx document on canvas as an image).
+## 目标
 
-Installation
------
+尽可能保持 HTML 语义地把 DOCX 渲染/转换为 HTML。库的能力受 HTML 本身限制（例如 Google Docs 是把文档绘制成 canvas 图像）。在此之上，本项目的重点是**公文级版式保真**：字体分 script 级联解析、按行重排分页、页眉页脚页码字段、浮动表格置底、Word 2003 兼容两端对齐等。
+
+## 安装
+
 ```
-npm install docx-preview
+npm install @apollo-design/docx-preview
 ```
 
-Usage
------
+包尚未发布到 npm 时，可直接使用 git 依赖：
+
+```
+npm install github:apollocmh/docx-preview
+```
+
+## 用法
+
 ```html
-<!--lib uses jszip-->
+<!-- 库依赖 jszip -->
 <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
 <script src="docx-preview.min.js"></script>
 <script>
@@ -36,26 +39,25 @@ Usage
 </body>
 ```
 
-Standalone viewer
------
-`dist/viewer/viewer.html` is a self-hosted, iframe-embeddable document reader (toolbar with pager, zoom and download). It loads a document from a URL parameter — the file server must allow cross-origin requests (CORS):
+## 独立预览器（standalone viewer）
+
+`dist/viewer/viewer.html` 是一个完全自托管、可 iframe 嵌入的阅读器（WPS 风格工具栏：翻页、缩放、下载、缩略图侧栏）。通过 URL 参数加载文档——文件服务器需允许跨域请求（CORS）：
 
 ```html
 <iframe src="viewer.html?file=https://example.com/document.docx"></iframe>
-<!-- optional initial zoom: fit-width (default) or a percent of natural size -->
+<!-- 可选初始缩放: 适应宽度(默认) / 自然尺寸百分比 -->
 <iframe src="viewer.html?file=...&scale=fit | 75 | 0.75"></iframe>
-<!-- optional initial thumbnail sidebar: shown (default) or hidden -->
+<!-- 可选初始缩略图侧栏: 显示(默认) / 隐藏 -->
 <iframe src="viewer.html?file=...&thumbs=1 | 0"></iframe>
-<!-- optional explicit document name (download file name + title) for
-     opaque media-library URLs -->
+<!-- 可选显式文档名(下载文件名 + 标题),用于媒体库等不透明地址 -->
 <iframe src="viewer.html?file=...&filename=report.docx"></iframe>
 ```
 
-Legacy binary documents (old `.doc`, and `.wps` — which even recent WPS Office still saves as an OLE2 binary by default) are detected upfront and reported with a clear "save as .docx" message; only OOXML packages are renderable.
+旧式二进制文档（老 `.doc`，以及 `.wps`——即便新版 WPS Office 默认仍保存为 OLE2 二进制）会被预先识别并给出"另存为 .docx"的明确提示；只有 OOXML 包可以渲染。
 
-Build it with `npm run build:release` (library artifacts + viewer package). The viewer ships as `dist/viewer/viewer.html` plus versioned, cache-friendly assets `dist/viewer/<version>/iie-preview-docx-viewer.min.{js,css}` — the JS is a single bundle (jszip + docx-preview UMD + viewer app, so no CDN is needed). GitHub Releases attach the same files: pushes to `master` refresh the rolling `latest` prerelease, `v*` tags publish a stable release. For local development, `npm run dev:viewer` builds the viewer and serves the repo at `http://localhost:8080/dist/viewer/viewer.html?file=<path-or-url>`.
+构建：`npm run build:release`（库产物 + 预览器包）。预览器发布为 `dist/viewer/viewer.html` 加版本化、利于缓存的资源 `dist/viewer/<version>/iie-preview-docx-viewer.min.{js,css}`——JS 是单文件 bundle（jszip + docx-preview + 预览器应用，无需 CDN）。GitHub Releases 附带相同文件：推送 `master` 刷新滚动 `latest` 预发布，`v*` 标签发布正式版。本地开发用 `npm run dev`（Vite dev server，源码改动即时生效）：`http://localhost:5173/viewer.html?file=./tmp/test.docx`。
 
-The viewer re-flows documents into pages (the `paginate` option). Fonts resolve in three tiers: fonts embedded in the .docx itself, then an optional `fonts.json` manifest placed next to `viewer.html`, then system fonts. The manifest is an array of webfont definitions injected as `@font-face`:
+预览器会把文档重排为真实分页（`paginate` 选项）。字体按三级解析：.docx 内嵌字体 → viewer.html 旁的 `fonts.json` 清单 → 系统字体。清单是注入为 `@font-face` 的 webfont 定义数组：
 
 ```json
 [
@@ -64,85 +66,92 @@ The viewer re-flows documents into pages (the `paginate` option). Fonts resolve 
 ]
 ```
 
-Note `name` must match the family name used inside the document (Chinese documents often reference Chinese family names like `宋体`/`黑体` directly), so list aliases as separate entries. A missing or invalid `fonts.json` is silently ignored.
+注意 `name` 必须与文档内部使用的字体族名一致（中文文档常直接引用中文族名，如 `宋体`/`黑体`），别名需列为单独条目。`fonts.json` 缺失或无效时静默忽略。
 
-API
----
+## API
+
 ```ts
-// renders document into specified element
+// 渲染文档到指定元素
 renderAsync(
-    document: Blob | ArrayBuffer | Uint8Array, // could be any type that supported by JSZip.loadAsync
-    bodyContainer: HTMLElement, //element to render document content,
-    styleContainer: HTMLElement, //element to render document styles, numbeings, fonts. If null, bodyContainer will be used.
+    document: Blob | ArrayBuffer | Uint8Array, // JSZip.loadAsync 支持的任意类型
+    bodyContainer: HTMLElement, // 渲染文档内容的元素
+    styleContainer: HTMLElement, // 渲染样式/编号/字体的元素,为 null 时用 bodyContainer
     options: {
-        className: string = "docx", //class name/prefix for default and document style classes
-        inWrapper: boolean = true, //enables rendering of wrapper around document content
-        hideWrapperOnPrint: boolean = false, //disable wrapper styles on print
-        ignoreWidth: boolean = false, //disables rendering width of page
-        ignoreHeight: boolean = false, //disables rendering height of page
-        ignoreFonts: boolean = false, //disables fonts rendering
-        breakPages: boolean = true, //enables page breaking on page breaks
-        paginate: boolean = false, //re-flows content into page-sized sections after render (splitting tables by row and paragraphs by line). Waits for webfonts before measuring.
-        fonts: [{ name: string, src: string, weight?: string|number, style?: string }], //external webfonts injected as @font-face before rendering, e.g. { name: "SimSun", src: 'url(fonts/simsun.woff2) format("woff2")' }
-        ignoreLastRenderedPageBreak: boolean = true, //disables page breaking on lastRenderedPageBreak elements
-        experimental: boolean = false, //enables experimental features (tab stops calculation)
-        trimXmlDeclaration: boolean = true, //if true, xml declaration will be removed from xml documents before parsing
-        useBase64URL: boolean = false, //if true, images, fonts, etc. will be converted to base 64 URL, otherwise URL.createObjectURL is used
-        renderChanges: false, //enables experimental rendering of document changes (inserions/deletions)
-        renderHeaders: true, //enables headers rendering
-        renderFooters: true, //enables footers rendering
-        renderFootnotes: true, //enables footnotes rendering
-        renderEndnotes: true, //enables endnotes rendering
-        renderComments: false, //enables experimental comments rendering
-        renderAltChunks: true, //enables altChunks (html parts) rendering
-        debug: boolean = false, //enables additional logging
-        h: ({ ns, tagName, className, style, children, ...props } | Node | string): Node, //experimental hook for HTML rendering, default implementation - defaultOptions.h
+        className: string = "docx", // 默认样式与文档样式类的类名/前缀
+        inWrapper: boolean = true, // 在文档内容外渲染 wrapper
+        hideWrapperOnPrint: boolean = false, // 打印时禁用 wrapper 样式
+        ignoreWidth: boolean = false, // 禁用页面宽度渲染
+        ignoreHeight: boolean = false, // 禁用页面高度渲染
+        ignoreFonts: boolean = false, // 禁用字体渲染
+        breakPages: boolean = true, // 在分页符处分页
+        paginate: boolean = false, // 渲染后把内容重排进页面尺寸的 section(表格按行、段落按行拆分);测量前会等待 webfont 就绪
+        fonts: [{ name: string, src: string, weight?: string|number, style?: string }], // 渲染前注入为 @font-face 的外部 webfont
+        ignoreLastRenderedPageBreak: boolean = true, // 禁用 lastRenderedPageBreak 元素分页
+        experimental: boolean = false, // 启用实验特性(制表位计算)
+        trimXmlDeclaration: boolean = true, // 解析前移除 xml 声明
+        useBase64URL: boolean = false, // 图片/字体等转为 base64 URL,否则用 URL.createObjectURL
+        renderChanges: false, // 实验性渲染文档修订(插入/删除)
+        renderHeaders: true, // 渲染页眉
+        renderFooters: true, // 渲染页脚
+        renderFootnotes: true, // 渲染脚注
+        renderEndnotes: true, // 渲染尾注
+        renderComments: false, // 实验性渲染批注
+        renderAltChunks: true, // 渲染 altChunks(html 部件)
+        debug: boolean = false, // 额外日志
+        h: ({ ns, tagName, className, style, children, ...props } | Node | string): Node, // 实验性 HTML 渲染钩子,默认实现见 defaultOptions.h
     }): Promise<WordDocument>
 
-defaultOptions: Options; // default options
+defaultOptions: Options; // 默认选项
 
-/// ==== experimental / internal API ===
-// this API could be used to modify document before rendering
-// renderAsync = parseAsync + renderDocument
+/// ==== 实验性 / 内部 API ====
+// 可用于渲染前修改文档;renderAsync = parseAsync + renderDocument
 
-// parse document and return internal document object
+// 解析文档,返回内部文档对象
 parseAsync(
     document: Blob | ArrayBuffer | Uint8Array,
     options: Options
 ): Promise<WordDocument>
 
-// render internal document object and return list of nodes
+// 渲染内部文档对象,返回节点列表
 renderDocument(
     wordDocument: WordDocument,
     options: Options
 ): Promise<Node[]>
 ```
 
-Thumbnails, TOC and etc.
-------
-Thumbnails is added only for example and it's not part of library. Library renders DOCX into HTML, so it can't be efficiently used for thumbnails. 
+## 分页说明
 
-Table of contents is built using the TOC fields and there is no efficient way to get table of contents at this point, since fields is not supported yet (http://officeopenxml.com/WPtableOfContents.php)
+库在以下情况分页：
 
-Breaks
-------
-Currently library does break pages:
-- if user/manual page break `<w:br w:type="page"/>` is inserted - when user insert page break
-- if application page break `<w:lastRenderedPageBreak/>` is inserted - could be inserted by editor application like MS word (`ignoreLastRenderedPageBreak` should be set to false)
-- if page settings for paragraph is changed - ex: user change settings from portrait to landscape page
+- 用户手动插入分页符 `<w:br w:type="page"/>`
+- 编辑器应用（如 MS Word）插入的 `<w:lastRenderedPageBreak/>`（需把 `ignoreLastRenderedPageBreak` 设为 `false`）
+- 段落页面设置变化（如纵向改横向）
 
-Realtime page breaking is not implemented because it's requires re-calculation of sizes on each insertion and that could affect performance a lot. 
+`paginate: true` 则在渲染后按真实版式重排分页（推荐配合 viewer 使用）。
 
-If page breaking is crucial for you, I would recommend:
-- try to insert manual break point as much as you could
-- try use editors like MS Word, that inserts `<w:lastRenderedPageBreak/>` break points
+## 构建与开发
 
-NOTE: by default `ignoreLastRenderedPageBreak` is set to `true`. You may need to set it to `false`, to make library break by `<w:lastRenderedPageBreak/>` break points
+| 命令 | 说明 |
+|---|---|
+| `npm run dev` | Vite dev server，开发预览器（HMR） |
+| `npm run build` | 库四产物（UMD/ES × 普通/压缩）+ 类型声明 |
+| `npm run build:viewer` | 预览器包（dist/viewer/） |
+| `npm run build:release` | 库 + 预览器 + 契约检查（CI 用） |
+| `npm run test:package` | 发布门禁：产物存在性、UMD 旧浏览器语法契约、ES 导出冒烟 |
+| `npm run watch` | 库构建 watch 模式 |
 
-Status and stability
-------
-So far I can't come up with final approach of parsing documents and final structure of API. Only **renderAsync** function is stable and definition shouldn't be changed in future. Inner implementation of parsing and rendering may be changed at any point of time.
+构建基于 Vite 8（Rolldown 内核）：UMD 产物经 Oxc 降级到 Chrome 76 语法（无 polyfill），ES 产物保留 ES2020。类型声明由 vite-plugin-dts + API Extractor 聚合为单一 `dist/docx-preview.d.ts`。
 
-Contributing
-------
-Please do not include contents of `./dist` folder in your PR's. Otherwise I most likely will reject it due to stability and security concerns.
+## 稳定性
+
+只有 **renderAsync** 是稳定 API，定义不会变更。解析与渲染的内部实现随时可能调整。
+
+## Credits
+
+This project is a heavily modified fork of [docxjs](https://github.com/VolodymyrBaydalka/docxjs) by **Volodymyr Baydalka**, licensed under the Apache License 2.0. Thanks to the original author for the excellent foundation.
+
+Subsequent development (pagination engine, per-script font cascade, floating-table anchoring, the standalone viewer, and the Vite 8 build) by **apollocmh**.
+
+## License
+
+[Apache License 2.0](LICENSE) — 原始出处声明见 [NOTICE](NOTICE)。

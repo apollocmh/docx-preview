@@ -1,37 +1,36 @@
-/*
- * @license
- * docx-preview <https://github.com/VolodymyrBaydalka/docxjs>
- * Released under Apache License 2.0  <https://github.com/VolodymyrBaydalka/docxjs/blob/master/LICENSE>
- * Copyright Volodymyr Baydalka
- */
+export declare const defaultOptions: Options;
 
-export type HElement = {
-    ns?: string;
-    tagName: string;
-    className?: string;
-    style?: Record<string, string> | string;
-    children?: (HElement | Node | string)[];
-} & Record<string, any>;
-
-export interface FontDefinition {
-    /** font-family name as used in the document, e.g. "SimSun" / "宋体" */
+export declare interface FontDefinition {
     name: string;
-    /** stylesheet src value, e.g. 'url(fonts/simsun.woff2) format("woff2")' */
     src: string;
     weight?: string | number;
     style?: string;
 }
 
-export interface Options {
+declare function h(elem: HElement | Node | string): Node;
+
+declare type HElement = {
+    ns?: ns;
+    tagName: "#fragment" | "#comment" | string;
+    className?: string;
+    style?: string | Record<string, string>;
+    children?: (HElement | Node | string)[];
+} & Record<string, any>;
+
+declare enum ns {
+    html = "http://www.w3.org/1999/xhtml",
+    svg = "http://www.w3.org/2000/svg",
+    mathML = "http://www.w3.org/1998/Math/MathML"
+}
+
+export declare interface Options {
     inWrapper: boolean;
     hideWrapperOnPrint: boolean;
     ignoreWidth: boolean;
     ignoreHeight: boolean;
     ignoreFonts: boolean;
     breakPages: boolean;
-    /** re-flow content into page-sized sections after render (needs DOM layout) */
     paginate: boolean;
-    /** external webfonts injected as @font-face before rendering */
     fonts?: FontDefinition[];
     debug: boolean;
     experimental: boolean;
@@ -46,12 +45,13 @@ export interface Options {
     renderChanges: boolean;
     renderComments: boolean;
     renderAltChunks: boolean;
-    h: (elemOrText: HElement | Node | string) => Node; //experimental, subject to change
+    h: typeof h;
 }
 
-//stub
-export type WordDocument = any;
-export declare const defaultOptions: Options;
-export declare function parseAsync(data: Blob | any, userOptions?: Partial<Options>): Promise<WordDocument>;
-export declare function renderDocument(document: WordDocument, userOptions?: Partial<Options>): Promise<Node[]>;
+export declare function parseAsync(data: Blob | any, userOptions?: Partial<Options>): Promise<any>;
+
 export declare function renderAsync(data: Blob | any, bodyContainer: HTMLElement, styleContainer?: HTMLElement, userOptions?: Partial<Options>): Promise<any>;
+
+export declare function renderDocument(document: any, userOptions?: Partial<Options>): Promise<any>;
+
+export { }
