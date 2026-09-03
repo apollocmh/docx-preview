@@ -4,5 +4,8 @@ bin
 obj
 *.log
 .idea
+/dist/
+/viewer-dist/
 /docs/agent-tmp/
 /viewer/tmp/
+/tmp/

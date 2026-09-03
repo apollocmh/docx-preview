@@ -12,7 +12,7 @@
 // bundlers. jszip stays external and resolves to the global `JSZip` in UMD.
 //
 // Usage: node scripts/build-lib.mjs [--watch]
-import { rm } from 'node:fs/promises';
+import { copyFile, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
@@ -70,4 +70,13 @@ for (const [i, cell] of (watch ? cells.slice(0, 1) : cells).entries()) {
 		},
 	});
 	console.log(`built dist/${cell.file} (${cell.format}@${cell.target}${cell.minify ? ', min' : ''})`);
+}
+
+// The package is "type": "module", so Node would load a .js `require` target
+// as ESM and the UMD factory would fall to its global branch. Ship the same
+// UMD again as .cjs — the `require` condition gets real CJS exports while
+// browsers keep the stable docx-preview.js filename.
+if (!watch) {
+	await copyFile(resolve(root, 'dist/docx-preview.js'), resolve(root, 'dist/docx-preview.cjs'));
+	console.log('built dist/docx-preview.cjs (copy of docx-preview.js for the require entry)');
 }

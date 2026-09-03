@@ -1,41 +1,52 @@
 name: Release
 
-# Push to master publishes a versioned prerelease (v<pkg>-master.<sha>);
-# pushing a v* tag builds and publishes a stable release for that tag.
+# Only formal v* tags create a GitHub Release (tag must equal package.json
+# version). Master pushes deploy the online viewer via pages.yml instead.
 on:
   push:
-    branches: [master]
     tags: ['v*']
-  workflow_dispatch:
 
 permissions:
   contents: write
-
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: true
+  id-token: write # npm Trusted Publishing (OIDC) + release provenance
 
 jobs:
-  build-release:
-    name: Build & Release
+  release:
+    name: Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
-      # Builds UMD (Oxc-downleveled for legacy embedders) + ES artifacts and
-      # builds the standalone viewer into dist/viewer/.
-      - run: npm run build:release
+      # Builds the library (dist/) and checks the UMD legacy-syntax contract.
+      - run: pnpm test
 
-      # A tag push must match package.json (v1.2.3 <-> version 1.2.3).
+      # npm Trusted Publishing requires npm >= 11.5.1 (Node 22 ships 10.x).
+      - name: Update npm for Trusted Publishing
+        run: npm install -g npm@latest
+
+      - name: Package npm tarball
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          npm pack
+          mv "apollo-design-docx-preview-${VERSION}.tgz" "docx-preview-${VERSION}.tgz"
+
+      # Builds the standalone viewer into viewer-dist/.
+      - run: pnpm build:viewer
+
+      - name: Zip standalone viewer
+        working-directory: viewer-dist
+        run: zip -r "../docx-preview-viewer-$(node -p "require('../package.json').version").zip" .
+
       - name: Verify tag matches package version
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG="${GITHUB_REF_NAME#v}"
           PKG="$(node -p "require('./package.json').version")"
@@ -44,50 +55,17 @@ jobs:
             exit 1
           fi
 
-      - name: Package dist archive
-        working-directory: dist
-        run: zip -r ../docx-preview-dist.zip .
+      # OIDC Trusted Publishing — no NPM_TOKEN. The package's Trusted
+      # Publisher entry must point at this repo + this workflow file.
+      - name: Publish to npm
+        run: npm publish --provenance "docx-preview-$(node -p "require('./package.json').version").tgz"
 
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+      # Exactly two assets: the npm tarball and the standalone viewer zip.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            dist/docx-preview.js
-            dist/docx-preview.min.js
-            dist/docx-preview.mjs
-            dist/docx-preview.min.mjs
-            dist/docx-preview.d.ts
-            dist/viewer/viewer.html
-            dist/viewer/fonts.json
-            dist/viewer/*/iie-preview-docx-viewer.min.js
-            dist/viewer/*/iie-preview-docx-viewer.min.css
-            docx-preview-dist.zip
-
-      # Master pushes publish a versioned prerelease per commit
-      # (v<pkg version>-master.<short sha>), not a rolling `latest` tag.
-      - name: Compute prerelease tag
-        if: github.ref == 'refs/heads/master'
-        id: pretag
-        run: echo "tag=v$(node -p "require('./package.json').version")-master.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-
-      - name: Publish master prerelease
-        if: github.ref == 'refs/heads/master'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.pretag.outputs.tag }}
-          name: ${{ steps.pretag.outputs.tag }}
-          prerelease: true
-          files: |
-            dist/docx-preview.js
-            dist/docx-preview.min.js
-            dist/docx-preview.mjs
-            dist/docx-preview.min.mjs
-            dist/docx-preview.d.ts
-            dist/viewer/viewer.html
-            dist/viewer/fonts.json
-            dist/viewer/*/iie-preview-docx-viewer.min.js
-            dist/viewer/*/iie-preview-docx-viewer.min.css
-            docx-preview-dist.zip
+            docx-preview-*.tgz
+            docx-preview-viewer-*.zip

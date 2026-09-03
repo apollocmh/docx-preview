@@ -1,9 +1,11 @@
 // Vite 8 config for the standalone viewer app (dev server + production build).
 //
 // Dev:    npm run dev          → http://localhost:5173/viewer.html?file=./tmp/test.docx
-// Build:  npm run build:viewer → dist/viewer/viewer.html (minified, asset
-//                                refs rewritten) + dist/viewer/<version>/
+// Build:  npm run build:viewer → viewer-dist/viewer.html (minified, asset
+//                                refs rewritten) + viewer-dist/<version>/
 //                                iie-preview-docx-viewer.min.{js,css}
+// viewer-dist/ is a build artifact and is NOT committed; the Release workflow
+// zips it as the standalone distribution, the Pages workflow deploys it.
 //
 // The viewer bundles jszip and the docx-preview library SOURCE directly
 // (viewer/viewer.js imports ../src/docx-preview), so the published viewer
@@ -43,7 +45,7 @@ export default defineConfig({
 		},
 	],
 	build: {
-		outDir: resolve(root, 'dist/viewer'),
+		outDir: resolve(root, 'viewer-dist'),
 		emptyOutDir: true,
 		// The viewer is embedded into legacy webviews; Oxc lowers the bundle
 		// (library source included) to Chrome 76 syntax, no polyfills.
