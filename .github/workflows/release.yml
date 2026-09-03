@@ -1,6 +1,6 @@
 name: Release
 
-# Push to master rebuilds and refreshes the rolling `latest` prerelease;
+# Push to master publishes a versioned prerelease (v<pkg>-master.<sha>);
 # pushing a v* tag builds and publishes a stable release for that tag.
 on:
   push:
@@ -66,12 +66,19 @@ jobs:
             dist/viewer/*/iie-preview-docx-viewer.min.css
             docx-preview-dist.zip
 
-      - name: Update rolling latest prerelease
+      # Master pushes publish a versioned prerelease per commit
+      # (v<pkg version>-master.<short sha>), not a rolling `latest` tag.
+      - name: Compute prerelease tag
+        if: github.ref == 'refs/heads/master'
+        id: pretag
+        run: echo "tag=v$(node -p "require('./package.json').version")-master.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish master prerelease
         if: github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: latest (master @ ${{ github.sha }})
+          tag_name: ${{ steps.pretag.outputs.tag }}
+          name: ${{ steps.pretag.outputs.tag }}
           prerelease: true
           files: |
             dist/docx-preview.js

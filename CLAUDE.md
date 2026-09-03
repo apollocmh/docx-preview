@@ -56,4 +56,4 @@ Chromeless iframe-embeddable reader: `viewer.html?file=<url>[&scale=fit|75|0.75]
 
 ## CI / Release
 
-`.github/workflows/release.yml`: push to master refreshes the rolling `latest` prerelease; `v*` tags publish a stable release (tag must equal package.json version). Uses `npm ci` — package-lock.json must stay committed. Release attachments: the five lib artifacts (4 + d.ts), `dist/viewer/viewer.html` + `fonts.json` + versioned assets (glob), and the whole-dist zip.
+`.github/workflows/release.yml`: push to master publishes a versioned prerelease per commit (`v<pkg version>-master.<short sha>`, e.g. `v0.5.0-master.a2dc40a`); `v*` tags publish a stable release (tag must equal package.json version). Uses `npm ci` — package-lock.json must stay committed. Release attachments: the five lib artifacts (4 + d.ts), `dist/viewer/viewer.html` + `fonts.json` + versioned assets (glob), and the whole-dist zip.

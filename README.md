@@ -55,7 +55,7 @@ npm install github:apollocmh/docx-preview
 
 旧式二进制文档（老 `.doc`，以及 `.wps`——即便新版 WPS Office 默认仍保存为 OLE2 二进制）会被预先识别并给出"另存为 .docx"的明确提示；只有 OOXML 包可以渲染。
 
-构建：`npm run build:release`（库产物 + 预览器包）。预览器发布为 `dist/viewer/viewer.html` 加版本化、利于缓存的资源 `dist/viewer/<version>/iie-preview-docx-viewer.min.{js,css}`——JS 是单文件 bundle（jszip + docx-preview + 预览器应用，无需 CDN）。GitHub Releases 附带相同文件：推送 `master` 刷新滚动 `latest` 预发布，`v*` 标签发布正式版。本地开发用 `npm run dev`（Vite dev server，源码改动即时生效）：`http://localhost:5173/viewer.html?file=./tmp/test.docx`。
+构建：`npm run build:release`（库产物 + 预览器包）。预览器发布为 `dist/viewer/viewer.html` 加版本化、利于缓存的资源 `dist/viewer/<version>/iie-preview-docx-viewer.min.{js,css}`——JS 是单文件 bundle（jszip + docx-preview + 预览器应用，无需 CDN）。GitHub Releases 附带相同文件：推送 `master` 发布按提交版本化的预发布（`v<版本>-master.<短sha>`，如 `v0.5.0-master.a2dc40a`），`v*` 标签发布正式版。本地开发用 `npm run dev`（Vite dev server，源码改动即时生效）：`http://localhost:5173/viewer.html?file=./tmp/test.docx`。
 
 预览器会把文档重排为真实分页（`paginate` 选项）。字体按三级解析：.docx 内嵌字体 → viewer.html 旁的 `fonts.json` 清单 → 系统字体。清单是注入为 `@font-face` 的 webfont 定义数组：
 
