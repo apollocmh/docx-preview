@@ -1,0 +1,369 @@
+/* Generated from apps/viewer/viewer.css: every rule scoped under
+ * .docx-viewer, page-global (html/body/:root→scope) and upload/empty-state
+ * rules dropped. Regenerate: node docs/agent-tmp/gen-style.mjs */
+.docx-viewer {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --text: #1f2329;
+  --text-dim: #6b7280;
+  --accent: #2563eb;
+  --accent-soft: #eff4ff;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+  --error-text: #b91c1c;
+  --font:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+}
+.docx-viewer,
+.docx-viewer * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+.docx-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 240px;
+  background: var(--bg);
+  /* carried over from the page-level body rule (dropped in the scoped port) */
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+}
+.docx-viewer .toolbar {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.docx-viewer .toolbar[hidden] {
+  display: none;
+}
+.docx-viewer .toolbar-divider {
+    width: 1px;
+    height: 18px;
+    background: var(--border);
+    margin-left: 8px;
+    margin-right: 8px;
+}
+.docx-viewer .toolbar-left,
+.docx-viewer .toolbar-right {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+}
+.docx-viewer .toolbar-right {
+  justify-content: flex-end;
+}
+.docx-viewer .toolbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+}
+.docx-viewer .tbtn {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.docx-viewer .tbtn svg {
+  display: block;
+}
+.docx-viewer .tbtn:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--text);
+}
+.docx-viewer .tbtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.docx-viewer .tbtn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.docx-viewer .pager {
+  display: flex;
+  align-items: center;
+}
+.docx-viewer .pager[hidden] {
+  display: none;
+}
+.docx-viewer .page-info {
+  display: flex;
+  align-items: center;
+}
+.docx-viewer .page-input {
+  font: inherit;
+  font-size: 13px;
+  width: 48px;
+  height: 28px;
+  text-align: center;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.docx-viewer .page-input::-webkit-outer-spin-button,
+.docx-viewer .page-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.docx-viewer .page-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.docx-viewer .page-total {
+  margin-left: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.docx-viewer .zoom-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.docx-viewer .zoom-group > .tbtn {
+  border-radius: 0;
+}
+.docx-viewer .zoom-group > .tbtn:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.docx-viewer .zoom-group > .tbtn:last-child {
+  border-radius: 0 6px 6px 0;
+}
+.docx-viewer .scale-select {
+  position: relative;
+}
+.docx-viewer .scale-display {
+  min-width: 78px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.docx-viewer .scale-display svg {
+  margin-left: 4px;
+}
+.docx-viewer .dropdown {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  min-width: 108px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(16, 24, 40, 0.12);
+  z-index: 30;
+}
+.docx-viewer .dropdown[hidden] {
+  display: none;
+}
+.docx-viewer .dropdown button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.docx-viewer .dropdown button:hover {
+  background: var(--bg);
+}
+.docx-viewer .dropdown button.selected {
+  color: var(--accent);
+  font-weight: 600;
+}
+.docx-viewer .error-banner {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  background: var(--error-bg);
+  border-bottom: 1px solid var(--error-border);
+  color: var(--error-text);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.docx-viewer .error-banner[hidden] {
+  display: none;
+}
+.docx-viewer .error-banner strong {
+  margin-right: 10px;
+}
+.docx-viewer .error-banner span {
+  overflow-wrap: anywhere;
+}
+.docx-viewer .body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+.docx-viewer .stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  padding: 24px;
+}
+.docx-viewer .document {
+  margin: 0 auto;
+  position: relative;
+}
+.docx-viewer .document .docx-wrapper {
+  background: transparent;
+  padding: 0;
+  min-width: 0;
+}
+.docx-viewer .document .docx-wrapper > section.docx {
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1),
+    0 0 1px rgba(16, 24, 40, 0.16);
+}
+.docx-viewer .page-corner {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border: 0 solid #b9bec7;
+}
+.docx-viewer .page-corner.tl {
+  border-right-width: 1.5px;
+  border-bottom-width: 1.5px;
+}
+.docx-viewer .page-corner.tr {
+  border-left-width: 1.5px;
+  border-bottom-width: 1.5px;
+}
+.docx-viewer .page-corner.bl {
+  border-right-width: 1.5px;
+  border-top-width: 1.5px;
+}
+.docx-viewer .page-corner.br {
+  border-left-width: 1.5px;
+  border-top-width: 1.5px;
+}
+.docx-viewer .thumbs {
+  flex: 0 0 auto;
+  width: 148px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  padding: 16px 0;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.docx-viewer .thumbs[hidden] {
+  display: none;
+}
+.docx-viewer .thumb {
+  width: 104px;
+  margin: 0 auto 14px;
+  cursor: pointer;
+}
+.docx-viewer .thumb-page {
+  position: relative;
+  width: 96px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+.docx-viewer .thumb:hover .thumb-page {
+  border-color: #c7cdd6;
+}
+.docx-viewer .thumb.current .thumb-page {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.docx-viewer .thumb-page .docx {
+  pointer-events: none;
+}
+.docx-viewer .thumbs .docx p::before {
+  content: none !important;
+}
+.docx-viewer .thumb-label {
+  margin-top: 5px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.docx-viewer .thumb.current .thumb-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .docx-viewer .thumbs {
+    display: none;
+  }
+}
+.docx-viewer .loading {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  background: rgba(243, 244, 246, 0.72);
+  z-index: 5;
+}
+.docx-viewer .loading[hidden] {
+  display: none;
+}
+.docx-viewer .spinner {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 14px;
+  border: 3px solid rgba(37, 99, 235, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: viewer-spin 0.9s linear infinite;
+}
+@keyframes viewer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.docx-viewer .docx span[style*="--docx-font-ea"][style*="方正仿宋_GBK"] {
+    font-weight: 500 !important;
+}

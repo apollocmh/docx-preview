@@ -12,7 +12,7 @@
  * build bundles jszip + docx-preview + this file into a single script.
  */
 import './viewer.css';
-import * as docxApi from '../src/docx-preview';
+import * as docxApi from '@apollo-design/docx-preview';
 
 (function () {
   'use strict';

@@ -1,0 +1,7 @@
+export function IconThumbs() {
+  return (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" fillRule="evenodd" d="M21 5H11v14h10zM3 5h6v14H3zm0-2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm2 4.25a.75.75 0 0 0 0 1.5h2a.75.75 0 0 0 0-1.5zm-.75 3.5A.75.75 0 0 1 5 10h2a.75.75 0 0 1 0 1.5H5a.75.75 0 0 1-.75-.75m.75 2a.75.75 0 0 0 0 1.5h2a.75.75 0 0 0 0-1.5z" clipRule="evenodd" />
+    </svg>
+  );
+}

@@ -1,0 +1,13 @@
+{
+  "name": "viewer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@apollo-design/docx-preview": "workspace:*"
+  }
+}

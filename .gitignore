@@ -4,9 +4,9 @@ bin
 obj
 *.log
 .idea
-/dist/
-/viewer-dist/
+dist/
 /docs/agent-tmp/
-/viewer/tmp/
+/apps/viewer/tmp/
 /tmp/
 /.npmrc
+*.tgz

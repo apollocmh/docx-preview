@@ -1,0 +1,53 @@
+{
+  "name": "@apollo-design/docx-preview",
+  "version": "0.7.0",
+  "description": "Render DOCX documents as semantic HTML, with a standalone iframe-embeddable viewer",
+  "keywords": [
+    "word",
+    "docx",
+    "preview",
+    "viewer",
+    "html"
+  ],
+  "license": "Apache-2.0",
+  "author": "apollocmh",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollocmh/docx-preview.git",
+    "directory": "packages/docx-preview"
+  },
+  "homepage": "https://apollocmh.github.io/docx-preview/",
+  "bugs": "https://github.com/apollocmh/docx-preview/issues",
+  "type": "module",
+  "main": "./dist/docx-preview.cjs",
+  "module": "./dist/docx-preview.mjs",
+  "types": "./dist/docx-preview.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/docx-preview.d.ts",
+      "import": "./dist/docx-preview.mjs",
+      "require": "./dist/docx-preview.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "NOTICE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "jszip": ">=3.0.0"
+  },
+  "scripts": {
+    "build": "node scripts/build-lib.mjs",
+    "test": "node scripts/build-lib.mjs && node scripts/check-dist.mjs",
+    "watch": "node scripts/build-lib.mjs --watch"
+  }
+}

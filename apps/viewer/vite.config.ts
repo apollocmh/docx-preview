@@ -1,29 +1,33 @@
 // Vite 8 config for the standalone viewer app (dev server + production build).
 //
-// Dev:    npm run dev          → http://localhost:5173/viewer.html?file=./tmp/test.docx
-// Build:  npm run build:viewer → viewer-dist/viewer.html (minified, asset
-//                                refs rewritten) + viewer-dist/<version>/
-//                                iie-preview-docx-viewer.min.{js,css}
-// viewer-dist/ is a build artifact and is NOT committed; the Release workflow
-// zips it as the standalone distribution, the Pages workflow deploys it.
+// Dev:   pnpm dev           → http://localhost:5173/viewer.html?file=./tmp/test.docx
+// Build: pnpm build:viewer  → apps/viewer/dist/viewer.html + dist/<version>/
+//                             iie-preview-docx-viewer.min.{js,css}
 //
 // The viewer bundles jszip and the docx-preview library SOURCE directly
-// (viewer/viewer.js imports ../src/docx-preview), so the published viewer
-// package is a single self-contained classic script per release, versioned
-// by directory for cache-friendliness. The library build itself lives in
-// scripts/build-lib.mjs (programmatic multi-target matrix, no config file).
+// (aliased to packages/docx-preview/src so dev edits hot-reload), producing
+// a single self-contained script per release, versioned by the library
+// package version for cache-friendliness.
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
-const root = dirname(fileURLToPath(import.meta.url));
-const version = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
+const appRoot = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(appRoot, '../..');
+const version = JSON.parse(
+	readFileSync(resolve(repoRoot, 'packages/docx-preview/package.json'), 'utf8'),
+).version;
 
 export default defineConfig({
-	root: 'viewer',
+	root: appRoot,
 	base: './',
 	input: 'viewer.html',
+	resolve: {
+		alias: {
+			'@apollo-design/docx-preview': resolve(repoRoot, 'packages/docx-preview/src/docx-preview.ts'),
+		},
+	},
 	plugins: [
 		{
 			// Vite doesn't minify HTML; do it here for our controlled page
@@ -45,7 +49,7 @@ export default defineConfig({
 		},
 	],
 	build: {
-		outDir: resolve(root, 'viewer-dist'),
+		outDir: 'dist',
 		emptyOutDir: true,
 		// The viewer is embedded into legacy webviews; Oxc lowers the bundle
 		// (library source included) to Chrome 76 syntax, no polyfills.

@@ -1,0 +1,49 @@
+{
+  "name": "@apollo-design/react-docx-preview",
+  "version": "0.1.0",
+  "description": "React DOCX viewer component (toolbar, pager, zoom, thumbnails) built on @apollo-design/docx-preview",
+  "keywords": [
+    "word",
+    "docx",
+    "preview",
+    "viewer",
+    "react"
+  ],
+  "license": "Apache-2.0",
+  "author": "apollocmh",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apollocmh/docx-preview.git",
+    "directory": "packages/react-docx-preview"
+  },
+  "homepage": "https://apollocmh.github.io/docx-preview/",
+  "bugs": "https://github.com/apollocmh/docx-preview/issues",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "peerDependencies": {
+    "react": ">=17"
+  },
+  "dependencies": {
+    "@apollo-design/docx-preview": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "vite build"
+  }
+}

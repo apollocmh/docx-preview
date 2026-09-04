@@ -1,16 +1,69 @@
 # @apollo-design/docx-preview
 
-将 DOCX 文档渲染为保留语义的 HTML，并附带一个可 iframe 嵌入的独立预览器。
+将 DOCX 文档渲染为保留语义的 HTML，附带三种形态的查看器（原生 / Vue / React）。
 
-> Based on [docxjs](https://github.com/VolodymyrBaydalka/docxjs) by Volodymyr Baydalka (Apache License 2.0) — see [Credits](#credits).
+本项目基于 **[docxjs](https://github.com/VolodymyrBaydalka/docxjs)**（作者 Volodymyr Baydalka，Apache License 2.0）深度改造。
 
-## 目标
+## 相对 docxjs 新增的功能
 
-尽可能保持 HTML 语义地把 DOCX 渲染/转换为 HTML。库的能力受 HTML 本身限制（例如 Google Docs 是把文档绘制成 canvas 图像）。在此之上，本项目的重点是**公文级版式保真**：字体分 script 级联解析、按行重排分页、页眉页脚页码字段、浮动表格置底、Word 2003 兼容两端对齐等。
+**渲染与版式（公文级保真）**
 
-## 三个使用入口
+- **重排分页引擎**（`paginate` 选项）：渲染后按真实版式把内容回流进页面尺寸的 section——表格按行拆、段落按行拆，续段自动抑制首行缩进与列表编号
+- **页码字段**：页眉页脚的 PAGE/NUMPAGES 域按页正确替换（含分页拆分后的克隆页脚）
+- **字体保真**：按 script 分离的字体级联（西文/东亚独立继承，run 级 Times New Roman 不再吞掉中文方正字体）；docDefaults 优先级修正；主题东亚字体解析
+- **外部字体注入**：`fonts` 选项 / `fonts.json` 清单注入 webfont，三级兜底（docx 内嵌字体 > fonts.json > 系统字体）
+- **公文版式**：浮动表格置底（版记行 `tblpYSpec="bottom"`）；右制表位对齐（版记左右分栏行）；Word 2003/WPS 兼容模式（compatibilityMode ≤ 11）下两端对齐段落末行空格拉伸；`atLeast` 行距修正（此前虚高近一倍）
 
-### 1. npm 包（Vite / Vue / React 等工程）
+**查看器（viewer）**
+
+- WPS 风格阅读器：翻页器、缩放（适应宽度/百分比）、下载、缩略图侧栏、Office 式页角裁切标记
+- 本地上传：选择或拖入 .docx 即预览，纯浏览器解析不上传服务器
+- OLE2 二进制识别：老 `.doc` 和 WPS 默认的 `.wps` 给出"另存为 .docx"的明确提示，而非报 zip 解析错误
+
+
+## 三版查看器
+
+| 形态 | 包/入口 | 适用场景 |
+|---|---|---|
+| **原生（零依赖）** | [在线演示](https://apollocmh.github.io/docx-preview/) / [Release 下载 zip](#独立预览器自行部署) | 不装 npm、iframe 嵌入、任意静态服务器部署 |
+| **React** | `@apollo-design/react-docx-preview` | React 工程内嵌查看器组件 |
+| **Vue 3** | `@apollo-design/vue-docx-preview` | Vue 工程内嵌查看器组件 |
+
+三版共享同一套查看器实现（WPS 风格工具栏、缩略图、页角标、分页渲染）。
+
+### React
+
+```bash
+pnpm add @apollo-design/react-docx-preview
+```
+
+```jsx
+import { DocxViewer } from '@apollo-design/react-docx-preview';
+import '@apollo-design/react-docx-preview/style.css';
+
+<DocxViewer data={blob} name="报告.docx" style={{ height: 600 }} onError={console.error} />
+```
+
+### Vue 3
+
+```bash
+pnpm add @apollo-design/vue-docx-preview
+```
+
+```vue
+<script setup>
+import { DocxViewer } from '@apollo-design/vue-docx-preview';
+import '@apollo-design/vue-docx-preview/style.css';
+</script>
+
+<template>
+  <DocxViewer :data="blob" name="报告.docx" style="height: 600px" @error="console.error" />
+</template>
+```
+
+组件 props：`data`（Blob/ArrayBuffer/Uint8Array，变化即重渲染）、`name`（下载文件名）、`initialScale`（`'fit'` 或数字）、`showThumbs`、`renderOptions`（库渲染选项）；事件：`onRendered` / `onError`（Vue 为 `@rendered` / `@error`）。
+
+## 使用核心库（npm 包）
 
 ```bash
 pnpm add @apollo-design/docx-preview
@@ -32,7 +85,7 @@ await renderAsync(docData, document.getElementById('container'));
 </script>
 ```
 
-### 2. 在线预览器（GitHub Pages）
+## 在线预览器（GitHub Pages）
 
 ```
 https://apollocmh.github.io/docx-preview/
@@ -44,7 +97,7 @@ https://apollocmh.github.io/docx-preview/
 https://apollocmh.github.io/docx-preview/?file=https://example.com/test.docx
 ```
 
-### 3. 独立预览器（自行部署）
+## 独立预览器（自行部署）
 
 从 [GitHub Releases](https://github.com/apollocmh/docx-preview/releases) 下载：
 
@@ -138,7 +191,7 @@ renderDocument(
 - 编辑器应用（如 MS Word）插入的 `<w:lastRenderedPageBreak/>`（需把 `ignoreLastRenderedPageBreak` 设为 `false`）
 - 段落页面设置变化（如纵向改横向）
 
-`paginate: true` 则在渲染后按真实版式重排分页（预览器默认启用）。
+`paginate: true` 则在渲染后按真实版式重排分页（三版查看器均默认启用）。
 
 ## 稳定性
 
@@ -148,7 +201,7 @@ renderDocument(
 
 This project is a heavily modified fork of [docxjs](https://github.com/VolodymyrBaydalka/docxjs) by **Volodymyr Baydalka**, licensed under the Apache License 2.0. Thanks to the original author for the excellent foundation.
 
-Subsequent development (pagination engine, per-script font cascade, floating-table anchoring, and the standalone viewer) by **apollocmh**.
+Subsequent development (pagination engine, per-script font cascade, floating-table anchoring, and the three viewer flavors) by **apollocmh**.
 
 ## License
 

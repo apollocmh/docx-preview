@@ -152,6 +152,10 @@ body {
   border-radius: 4px;
   -moz-appearance: textfield;
   appearance: textfield;
+  /* The toolbar carries user-select:none (mis-click guard); inherited into
+     the input it makes the caret unplaceable by mouse click in Chromium. */
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .page-input::-webkit-outer-spin-button,

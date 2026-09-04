@@ -1,6 +1,6 @@
 name: Pages
 
-# Deploys the standalone viewer (viewer-dist/) to GitHub Pages on every
+# Deploys the standalone viewer (apps/viewer/dist) to GitHub Pages on every
 # master push: https://apollocmh.github.io/docx-preview/
 # Never creates GitHub Releases — that's release.yml's job (v* tags only).
 on:
@@ -37,12 +37,12 @@ jobs:
       # Vite builds the viewer with relative asset paths (base: './'), so the
       # site works under the /docx-preview/ subpath, any static-server
       # subdirectory, and inside an iframe.
-      - run: pnpm build:viewer
+      - run: pnpm --filter viewer build
 
       # Serve the viewer at the site root (…/docx-preview/ → index.html);
       # viewer.html stays alongside for direct/iframe links.
       - name: Add site root entry
-        run: cp viewer-dist/viewer.html viewer-dist/index.html
+        run: cp apps/viewer/dist/viewer.html apps/viewer/dist/index.html
 
       - uses: actions/configure-pages@v6
         with:
@@ -52,7 +52,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: viewer-dist
+          path: apps/viewer/dist
 
       - id: deployment
         uses: actions/deploy-pages@v5

@@ -1,7 +1,8 @@
 name: Release
 
-# Only formal v* tags create a GitHub Release (tag must equal package.json
-# version). Master pushes deploy the online viewer via pages.yml instead.
+# Only formal v* tags create a GitHub Release (tag must equal the published
+# package's version: packages/docx-preview/package.json). Master pushes deploy
+# the online viewer via pages.yml instead.
 on:
   push:
     tags: ['v*']
@@ -26,8 +27,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Builds the library (dist/) and checks the UMD legacy-syntax contract.
-      - run: pnpm test
+      # Builds the library (packages/docx-preview/dist) and checks the UMD
+      # legacy-syntax contract.
+      - run: pnpm --filter @apollo-design/docx-preview test
 
       # npm Trusted Publishing requires npm >= 11.5.1 (Node 22 ships 10.x).
       - name: Update npm for Trusted Publishing
@@ -35,30 +37,55 @@ jobs:
 
       - name: Package npm tarball
         run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          npm pack
+          VERSION="$(node -p "require('./packages/docx-preview/package.json').version")"
+          npm pack --pack-destination . ./packages/docx-preview
           mv "apollo-design-docx-preview-${VERSION}.tgz" "docx-preview-${VERSION}.tgz"
 
-      # Builds the standalone viewer into viewer-dist/.
-      - run: pnpm build:viewer
+      # Builds the standalone viewer (apps/viewer/dist).
+      - run: pnpm --filter viewer build
 
       - name: Zip standalone viewer
-        working-directory: viewer-dist
-        run: zip -r "../docx-preview-viewer-$(node -p "require('../package.json').version").zip" .
+        working-directory: apps/viewer/dist
+        run: zip -r "../../../docx-preview-viewer-$(node -p "require('../../../packages/docx-preview/package.json').version").zip" .
 
       - name: Verify tag matches package version
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          PKG="$(node -p "require('./package.json').version")"
+          PKG="$(node -p "require('./packages/docx-preview/package.json').version")"
           if [ "$TAG" != "$PKG" ]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${PKG}" >&2
+            echo "Tag ${GITHUB_REF_NAME} does not match packages/docx-preview version ${PKG}" >&2
             exit 1
           fi
 
       # OIDC Trusted Publishing — no NPM_TOKEN. The package's Trusted
       # Publisher entry must point at this repo + this workflow file.
       - name: Publish to npm
-        run: npm publish --provenance "docx-preview-$(node -p "require('./package.json').version").tgz"
+        run: npm publish --provenance "docx-preview-$(node -p "require('./packages/docx-preview/package.json').version").tgz"
+
+      - name: Build wrapper packages
+        run: |
+          pnpm --filter @apollo-design/react-docx-preview build
+          pnpm --filter @apollo-design/vue-docx-preview build
+
+      # Wrapper packages use pnpm pack so the workspace:* dependency range is
+      # rewritten to the real library version. A wrapper is published only
+      # when its version isn't on npm yet — unchanged wrappers don't fail the
+      # release. Each wrapper needs its own Trusted Publisher entry on npm
+      # (same repo + this workflow), and a one-time manual first publish.
+      - name: Publish wrapper packages
+        run: |
+          for PKG_DIR in packages/react-docx-preview packages/vue-docx-preview; do
+            NAME="$(node -p "require('./$PKG_DIR/package.json').name")"
+            VERSION="$(node -p "require('./$PKG_DIR/package.json').version")"
+            if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+              echo "$NAME@$VERSION already on npm, skipping"
+              continue
+            fi
+            echo "publishing $NAME@$VERSION"
+            (cd "$PKG_DIR" && pnpm pack --pack-destination ../..)
+            TGZ="$(echo "$NAME" | tr '/' '-' | sed 's/^@//')-${VERSION}.tgz"
+            npm publish --provenance "./$TGZ"
+          done
 
       # Exactly two assets: the npm tarball and the standalone viewer zip.
       - name: Create GitHub Release
