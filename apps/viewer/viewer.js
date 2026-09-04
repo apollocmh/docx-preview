@@ -127,11 +127,15 @@ import * as docxApi from '@apollo-design/docx-preview';
   // { "name": "SimSun", "src": "url(fonts/simsun.woff2) format(\"woff2\")",
   //   "weight": 400, "style": "normal" }. A missing/invalid file just means
   // no external fonts (embedded docx fonts and system fonts still apply).
+  // Embedders can point at a manifest elsewhere via <body data-fonts-url>.
   var fontsPromise = null;
 
   function loadExternalFonts() {
     if (!fontsPromise) {
-      fontsPromise = fetch(new URL('fonts.json', location.href).href)
+      var manifestUrl =
+        (document.body.dataset && document.body.dataset.fontsUrl) ||
+        new URL('fonts.json', location.href).href;
+      fontsPromise = fetch(manifestUrl)
         .then(function (response) {
           if (!response.ok) return null;
           return response.json();
@@ -760,5 +764,9 @@ import * as docxApi from '@apollo-design/docx-preview';
   var fileParam = params.get('file');
   if (fileParam) {
     openRemoteFile(fileParam);
+  } else if (document.body.dataset && document.body.dataset.defaultFile) {
+    // Embedder-provided default document (the online demo site preloads its
+    // sample this way): <body data-default-file="...">.
+    openRemoteFile(document.body.dataset.defaultFile);
   }
 })();

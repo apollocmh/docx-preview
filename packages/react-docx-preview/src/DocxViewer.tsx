@@ -1,11 +1,13 @@
 // React DOCX viewer component — a port of apps/viewer (toolbar, pager,
-// zoom, thumbnails, page corners). The document is fed via the `data` prop
+// zoom, thumbnails, page corners). The document is fetched from the `url`
+// prop (optionally via `customRequest`, e.g. for authenticated endpoints)
 // and re-renders when it changes; initialScale/showThumbs/renderOptions
 // describe the initial mount (like viewer.html's URL params).
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import type { Options } from '@apollo-design/docx-preview';
 import { useDocViewer } from './hooks/useDocViewer';
+import type { DocxCustomRequest } from './hooks/useDocViewer';
 import { DocxViewerContext } from './context';
 import { Toolbar } from './components/Toolbar';
 import { ErrorBanner } from './components/ErrorBanner';
@@ -14,9 +16,11 @@ import { DocumentStage } from './components/DocumentStage';
 import './styles/viewer.css';
 
 export interface DocxViewerProps {
-  /** document data — Blob / ArrayBuffer / Uint8Array; re-renders on change */
-  data?: Blob | ArrayBuffer | Uint8Array | null;
-  /** document name for the download button */
+  /** 文档地址,默认 GET 读取;变化即重新加载 */
+  url: string;
+  /** 自定义请求(可附加鉴权头等),返回文档数据;缺省用 fetch GET */
+  customRequest?: DocxCustomRequest;
+  /** document name for the download button; defaults to the URL's last path segment */
   name?: string;
   /** 'fit' | number (0.75, 75, …) — initial zoom; mount-time only */
   initialScale?: 'fit' | number;
@@ -31,7 +35,8 @@ export interface DocxViewerProps {
 }
 
 export function DocxViewer({
-  data,
+  url,
+  customRequest,
   name,
   initialScale,
   showThumbs,
@@ -50,11 +55,16 @@ export function DocxViewer({
     { initialScale, showThumbs, renderOptions, onRendered, onError },
   );
 
+  // customRequest is a function prop — read it through a ref so an inline
+  // lambda doesn't retrigger the load on every render.
+  const requestRef = useRef(customRequest);
+  requestRef.current = customRequest;
+
   useEffect(() => {
-    if (data) api.open(data, name);
-    // open is stable (reads latest props through refs); re-run only on data.
+    if (url) api.openUrl(url, requestRef.current, name);
+    // openUrl is stable (reads latest props through refs); re-run only on url.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, name]);
+  }, [url, name]);
 
   return (
     <DocxViewerContext.Provider value={api}>

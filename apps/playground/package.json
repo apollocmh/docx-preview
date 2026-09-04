@@ -4,15 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build"
+    "dev": "vitepress dev --port 5174",
+    "dev:demos": "vite",
+    "build": "vitepress build && vite build",
+    "preview": "vitepress preview"
   },
   "dependencies": {
-    "@apollo-design/docx-preview": "workspace:*",
-    "@apollo-design/react-docx-preview": "workspace:*",
-    "@apollo-design/vue-docx-preview": "workspace:*",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "vue": "^3.5.42"
+    "@apollo-design/docx-preview": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "vitepress": "^1.6.4"
   }
 }

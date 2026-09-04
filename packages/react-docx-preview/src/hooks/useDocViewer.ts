@@ -49,6 +49,20 @@ function errorText(err: unknown): string {
   return String(err);
 }
 
+/** 自定义文档请求(可附加鉴权头等),返回文档数据 */
+export type DocxCustomRequest = (url: string) => Promise<Blob | ArrayBuffer | Uint8Array | null>;
+
+// Download-button fallback name: last path segment of the URL.
+function nameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url, window.location.href).pathname;
+    const last = pathname.split('/').filter(Boolean).pop();
+    return (last && decodeURIComponent(last)) || 'document.docx';
+  } catch {
+    return 'document.docx';
+  }
+}
+
 function initialScaleMode(value: 'fit' | number | undefined): 'fit' | number {
   if (typeof value === 'number' && isFinite(value) && value > 0) {
     const n = value > 10 ? value / 100 : value;
@@ -451,6 +465,34 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     return openBuffer(data as ArrayBuffer, docName);
   }
 
+  /** Opens a document from a URL — plain GET by default; pass customRequest to customize the request (auth headers, tokens, …). */
+  async function openUrl(url: string, customRequest?: DocxCustomRequest, name?: string) {
+    if (!url) return;
+    setLoading(true);
+    setError(null);
+    try {
+      let data: Blob | ArrayBuffer | Uint8Array | null;
+      if (customRequest) {
+        data = await customRequest(url);
+      } else {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('HTTP ' + response.status + ' ' + response.statusText);
+        data = await response.blob();
+      }
+      if (!data) throw new Error('文档数据为空');
+      return await open(data, name || nameFromUrl(url));
+    } catch (err) {
+      console.error(err);
+      setError({
+        title: '加载文档失败',
+        detail: errorText(err) + ' —— 请确认地址可访问(如需鉴权请使用 customRequest)。',
+      });
+      optionsRef.current.onError?.(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function download() {
     const docBlob = it.current.docBlob;
     if (!docBlob) return;
@@ -539,6 +581,7 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     scaleLabel,
     // actions
     open,
+    openUrl,
     goToPage,
     jumpToPage,
     zoomStep,

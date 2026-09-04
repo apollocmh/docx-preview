@@ -25,7 +25,7 @@
 
 | 形态 | 包/入口 | 适用场景 |
 |---|---|---|
-| **原生（零依赖）** | [在线演示](https://apollocmh.github.io/docx-preview/) / [Release 下载 zip](#独立预览器自行部署) | 不装 npm、iframe 嵌入、任意静态服务器部署 |
+| **原生（零依赖）** | [在线演示](https://apollocmh.github.io/docx-preview/demos/browser/) / [Release 下载 zip](#独立预览器自行部署) | 不装 npm、iframe 嵌入、任意静态服务器部署 |
 | **React** | `@apollo-design/react-docx-preview` | React 工程内嵌查看器组件 |
 | **Vue 3** | `@apollo-design/vue-docx-preview` | Vue 工程内嵌查看器组件 |
 
@@ -41,7 +41,7 @@ pnpm add @apollo-design/react-docx-preview
 import { DocxViewer } from '@apollo-design/react-docx-preview';
 import '@apollo-design/react-docx-preview/style.css';
 
-<DocxViewer data={blob} name="报告.docx" style={{ height: 600 }} onError={console.error} />
+<DocxViewer url="/files/报告.docx" style={{ height: 600 }} onError={console.error} />
 ```
 
 ### Vue 3
@@ -57,11 +57,11 @@ import '@apollo-design/vue-docx-preview/style.css';
 </script>
 
 <template>
-  <DocxViewer :data="blob" name="报告.docx" style="height: 600px" @error="console.error" />
+  <DocxViewer url="/files/报告.docx" style="height: 600px" @error="console.error" />
 </template>
 ```
 
-组件 props：`data`（Blob/ArrayBuffer/Uint8Array，变化即重渲染）、`name`（下载文件名）、`initialScale`（`'fit'` 或数字）、`showThumbs`、`renderOptions`（库渲染选项）；事件：`onRendered` / `onError`（Vue 为 `@rendered` / `@error`）。
+组件 props：`url`（文档地址，默认 GET 读取，变化即重新加载）、`customRequest`（自定义请求，可附加鉴权头）、`name`（下载文件名，缺省取 url 末段）、`initialScale`（`'fit'` 或数字）、`showThumbs`、`renderOptions`（库渲染选项）；事件：`onRendered` / `onError`（Vue 为 `@rendered` / `@error`）。
 
 ## 使用核心库（npm 包）
 
@@ -85,16 +85,20 @@ await renderAsync(docData, document.getElementById('container'));
 </script>
 ```
 
-## 在线预览器（GitHub Pages）
+## 在线文档与 Demo（GitHub Pages）
 
 ```
 https://apollocmh.github.io/docx-preview/
 ```
 
-打开后**选择或拖入本地 DOCX 文件**即可预览——文档只在浏览器内解析，不会上传到任何服务器。也支持通过 URL 参数加载远程文档（需 CORS）：
+站点包含项目文档和查看器在线 Demo（默认加载内置示例文档，也可选择本地 .docx——纯浏览器解析，不上传服务器）：
+
+- [Browser 原生 Demo](https://apollocmh.github.io/docx-preview/demos/browser/)
+
+Demo 支持通过 URL 参数加载远程文档（需 CORS）：
 
 ```
-https://apollocmh.github.io/docx-preview/?file=https://example.com/test.docx
+https://apollocmh.github.io/docx-preview/demos/browser/?file=https://example.com/test.docx
 ```
 
 ## 独立预览器（自行部署）

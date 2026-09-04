@@ -1,7 +1,8 @@
 name: Pages
 
-# Deploys the standalone viewer (apps/viewer/dist) to GitHub Pages on every
-# master push: https://apollocmh.github.io/docx-preview/
+# Deploys the docs + demos site (apps/playground: VitePress docs merged with
+# the three viewer demo builds) to GitHub Pages on every master push:
+# https://apollocmh.github.io/docx-preview/
 # Never creates GitHub Releases — that's release.yml's job (v* tags only).
 on:
   push:
@@ -34,15 +35,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Vite builds the viewer with relative asset paths (base: './'), so the
-      # site works under the /docx-preview/ subpath, any static-server
-      # subdirectory, and inside an iframe.
-      - run: pnpm --filter viewer build
-
-      # Serve the viewer at the site root (…/docx-preview/ → index.html);
-      # viewer.html stays alongside for direct/iframe links.
-      - name: Add site root entry
-        run: cp apps/viewer/dist/viewer.html apps/viewer/dist/index.html
+      # `--filter playground...` builds the workspace dependencies first
+      # (core lib + react/vue wrappers, whose dist the demos import), then
+      # the playground itself: `vitepress build` (docs) followed by
+      # `vite build` (demos merged into the same dist).
+      - run: pnpm --filter playground... build
 
       - uses: actions/configure-pages@v6
         with:
@@ -52,7 +49,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: apps/viewer/dist
+          path: apps/playground/.vitepress/dist
 
       - id: deployment
         uses: actions/deploy-pages@v5

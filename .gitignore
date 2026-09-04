@@ -10,3 +10,5 @@ dist/
 /tmp/
 /.npmrc
 *.tgz
+**/.vitepress/cache
+**/.vitepress/dist-test/
