@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+// @ts-ignore
 import tailwindcss from '@tailwindcss/vite';
 
 const BASE = '/docx-preview/';
@@ -41,7 +42,7 @@ export default defineConfig({
         text: '在线 Demo',
         // No BASE prefix: VitePress applies base to internal links itself
         // (writing it here would produce /docx-preview/docx-preview/...).
-        items: [{ text: 'Browser 原生', link: '/demos/browser/' }],
+        items: [{ text: 'Browser 原生', link: '/demos/browser/', target: '_blank', }],
       },
       { text: 'npm', link: 'https://www.npmjs.com/package/@apollo-design/docx-preview' },
     ],

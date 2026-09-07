@@ -7,9 +7,8 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "dev": "pnpm --filter viewer dev",
-    "dev:playground": "pnpm --filter playground dev",
-    "dev:demos": "pnpm --filter playground dev:demos",
+    "dev": "pnpm --filter playground dev",
+    "dev:viewer": "pnpm --filter viewer dev",
     "build": "pnpm --filter @apollo-design/docx-preview build",
     "build:viewer": "pnpm --filter viewer build",
     "build:site": "pnpm --filter playground... build",

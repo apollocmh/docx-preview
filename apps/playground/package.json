@@ -4,8 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vitepress dev --port 5174",
-    "dev:demos": "vite",
+    "dev": "concurrently \"vitepress dev --port 5174\" \"vite\" --port 5174",
     "build": "vitepress build && vite build",
     "preview": "vitepress preview"
   },
@@ -14,6 +13,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "concurrently": "^10.0.5",
     "tailwindcss": "^4.3.3",
     "vitepress": "^1.6.4"
   }

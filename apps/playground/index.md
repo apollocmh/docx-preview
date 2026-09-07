@@ -12,6 +12,7 @@ hero:
     - theme: alt
       text: 在线 Demo
       link: /demos/browser/
+      target: '_blank'
 
 features:
   - title: 重排分页引擎

@@ -1,6 +1,6 @@
 {
   "name": "@apollo-design/docx-preview",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Render DOCX documents as semantic HTML, with a standalone iframe-embeddable viewer",
   "keywords": [
     "word",
