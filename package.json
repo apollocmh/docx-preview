@@ -14,20 +14,23 @@
     "build:site": "pnpm --filter playground... build",
     "build:all": "pnpm -r build",
     "test": "pnpm --filter @apollo-design/docx-preview test",
-    "watch": "pnpm --filter @apollo-design/docx-preview watch"
+    "watch": "pnpm --filter @apollo-design/docx-preview watch",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier --write ."
   },
   "devDependencies": {
-    "@microsoft/api-extractor": "^7.59.0",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5",
-    "@vitejs/plugin-vue": "^6.0.8",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "terser": "^5.51.2",
-    "typescript": "^5.0.3",
-    "vite": "^8.2.2",
-    "vite-plugin-dts": "^5.1.0",
-    "vue": "^3.5.42",
-    "vue-tsc": "^3.3.11"
+    "@microsoft/api-extractor": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "prettier": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "terser": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
+    "vue": "catalog:",
+    "vue-tsc": "catalog:"
   }
 }

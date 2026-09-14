@@ -1,6 +1,6 @@
 {
   "name": "@apollo-design/vue-docx-preview",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Vue 3 DOCX viewer component (toolbar, pager, zoom, thumbnails) built on @apollo-design/docx-preview",
   "keywords": [
     "word",
@@ -21,10 +21,14 @@
   "type": "module",
   "exports": {
     ".": {
+      "development": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./style.css": "./dist/style.css",
+    "./style.css": {
+      "development": "./src/styles/viewer.css",
+      "default": "./dist/style.css"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -34,16 +38,25 @@
     "**/*.css"
   ],
   "peerDependencies": {
-    "vue": ">=3"
+    "vue": "^3.0.0"
   },
   "dependencies": {
     "@apollo-design/docx-preview": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
+    "vue": "catalog:",
+    "vue-tsc": "catalog:"
   },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "vite build"
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit"
   }
 }

@@ -1,8 +1,10 @@
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
 
-const appRoot = dirname(fileURLToPath(import.meta.url));
+const appRoot = dirname(fileURLToPath(import.meta.url))
 
 // Builds ONLY the browser demo (the apps/viewer WPS-style viewer preloaded
 // with the site sample) merged into the VitePress output (.vitepress/dist)
@@ -10,20 +12,39 @@ const appRoot = dirname(fileURLToPath(import.meta.url));
 // itself owns the docs pages and never loads this file (vite.configFile:
 // false in .vitepress/config.ts).
 //
-// The core library is aliased to its SOURCE so renderer edits hot-reload
-// in dev and ship from a single code path in the Pages deployment.
+// Workspace packages are consumed through their `exports["."]["development"]`
+// condition, which points at each package's src/ — so edits under
+// packages/*/src hot-reload here without any alias. In `vite build` the
+// `development` condition drops out and the packages resolve to their
+// dist/ output, which is what the deployed site should use.
 export default defineConfig({
   root: appRoot,
   // Same base in dev and prod (GitHub Pages subpath) so import.meta.env.BASE_URL
   // and the VitePress dev proxy (5174 -> 5173) line up without rewrites.
   base: '/docx-preview/',
+  plugins: [vue(), tailwindcss()],
   resolve: {
-    alias: {
-      '@apollo-design/docx-preview': resolve(appRoot, '../../packages/docx-preview/src/docx-preview.ts'),
-      // The canonical viewer lives in apps/viewer; alias it because plain
-      // ../../ imports outside the Vite root fail to resolve in build.
-      '#viewer': resolve(appRoot, '../viewer'),
-    },
+    // Only the intra-app `#viewer` alias is needed — it points at a sibling
+    // directory, which npm resolution can't express.
+    //
+    // The subpath rule must come first: `#viewer/viewer.html?raw` carries a
+    // query string, so `resolve()` cannot be used for the whole replacement
+    // (it would treat `$1` as a literal segment). Resolve the directory, then
+    // append `$1` so the regex engine expands it after resolution.
+    alias: [
+      { find: /^#viewer\/(.+)$/, replacement: resolve(appRoot, '../viewer') + '/$1' },
+      { find: /^#viewer$/, replacement: resolve(appRoot, '../viewer') },
+    ],
+  },
+  optimizeDeps: {
+    // Keep workspace packages out of the pre-bundle step; otherwise Vite
+    // bundles their `import` condition (dist/) and the `development`
+    // condition never gets a chance to point at src/.
+    exclude: [
+      '@apollo-design/docx-preview',
+      '@apollo-design/react-docx-preview',
+      '@apollo-design/vue-docx-preview',
+    ],
   },
   build: {
     outDir: resolve(appRoot, '.vitepress/dist'),
@@ -32,7 +53,9 @@ export default defineConfig({
     rollupOptions: {
       input: {
         'demos/browser': resolve(appRoot, 'demos/browser/index.html'),
+        'demos/react': resolve(appRoot, 'demos/react/index.html'),
+        'demos/vue': resolve(appRoot, 'demos/vue/index.html'),
       },
     },
   },
-});
+})

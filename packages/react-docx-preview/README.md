@@ -51,15 +51,27 @@ function App() {
 
 | Prop | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `url` | `string` | — | 文档地址，默认 GET 读取；变化即重新加载 |
+| `url` | `string \| null` | `null` | 文档地址，默认 GET 读取；变化即重新加载。为空时显示空态 |
 | `customRequest` | `(url) => Promise<Blob \| ArrayBuffer \| Uint8Array \| null>` | — | 自定义请求（鉴权头等）；缺省用 `fetch` GET |
 | `name` | `string` | url 末段 | 下载按钮使用的文件名 |
 | `initialScale` | `'fit' \| number` | `'fit'` | 初始缩放：适应宽度或百分比（`0.75` / `75` 均可）；仅挂载时生效 |
 | `showThumbs` | `boolean` | `true` | 初始是否显示缩略图侧栏；仅挂载时生效 |
 | `renderOptions` | `Partial<Options>` | — | 透传给核心库的渲染选项，合并于 `{ paginate: true, experimental: true }` 之上 |
+| `empty` | `ReactNode` | `暂无预览文档` | 无文档（`url` 为空且未加载）时的占位内容，对应 Vue 版的 `#empty` 插槽 |
 | `className` / `style` | — | — | 根元素 class / 内联样式 |
 | `onRendered` | `(result) => void` | — | 渲染完成回调 |
 | `onError` | `(error) => void` | — | 渲染失败回调 |
+
+## 空态
+
+`url` 为空（`null` / 空串）且没有正在加载时，组件渲染 `empty`：
+
+```jsx
+<DocxViewer
+  url={fileUrl} // string | null
+  empty={<p className="text-gray-400">请选择一个 DOCX 文件</p>}
+/>
+```
 
 ## 外部字体
 

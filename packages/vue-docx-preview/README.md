@@ -52,7 +52,7 @@ const customRequest = async (url) => {
 
 | Prop | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `url` | `string` | — | 文档地址，默认 GET 读取；变化即重新加载 |
+| `url` | `string \| null` | `null` | 文档地址，默认 GET 读取；变化即重新加载。为空时显示空态 |
 | `customRequest` | `(url) => Promise<Blob \| ArrayBuffer \| Uint8Array \| null>` | — | 自定义请求（鉴权头等）；缺省用 `fetch` GET |
 | `name` | `string` | url 末段 | 下载按钮使用的文件名 |
 | `initialScale` | `'fit' \| number` | `'fit'` | 初始缩放：适应宽度或百分比（`0.75` / `75` 均可）；仅挂载时生效 |
@@ -60,6 +60,20 @@ const customRequest = async (url) => {
 | `renderOptions` | `Partial<Options>` | — | 透传给核心库的渲染选项，合并于 `{ paginate: true, experimental: true }` 之上 |
 
 事件：`@rendered`（渲染完成）/ `@error`（渲染失败）。
+
+## 空态
+
+`url` 为空（`null` / 空串）且没有正在加载时，组件渲染 `#empty` 插槽（缺省为「暂无预览文档」）：
+
+```vue
+<template>
+  <DocxViewer :url="fileUrl" style="height: 100%">
+    <template #empty>
+      <p>请选择一个 DOCX 文件</p>
+    </template>
+  </DocxViewer>
+</template>
+```
 
 ## 外部字体
 

@@ -12,3 +12,4 @@ dist/
 *.tgz
 **/.vitepress/cache
 **/.vitepress/dist-test/
+.workbuddy-ai/

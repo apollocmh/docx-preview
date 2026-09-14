@@ -1,6 +1,6 @@
 {
   "name": "@apollo-design/docx-preview",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Render DOCX documents as semantic HTML, with a standalone iframe-embeddable viewer",
   "keywords": [
     "word",
@@ -24,6 +24,7 @@
   "types": "./dist/docx-preview.d.ts",
   "exports": {
     ".": {
+      "development": "./src/docx-preview.ts",
       "types": "./dist/docx-preview.d.ts",
       "import": "./dist/docx-preview.mjs",
       "require": "./dist/docx-preview.cjs"
@@ -45,9 +46,16 @@
   "dependencies": {
     "jszip": ">=3.0.0"
   },
+  "devDependencies": {
+    "@microsoft/api-extractor": "catalog:",
+    "terser": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  },
   "scripts": {
     "build": "node scripts/build-lib.mjs",
     "test": "node scripts/build-lib.mjs && node scripts/check-dist.mjs",
-    "watch": "node scripts/build-lib.mjs --watch"
+    "watch": "node scripts/build-lib.mjs --watch",
+    "typecheck": "tsc --noEmit"
   }
 }
