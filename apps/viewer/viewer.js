@@ -55,6 +55,14 @@ import * as docxApi from '@apollo-design/docx-preview';
     empty: document.getElementById('empty'),
     loading: document.getElementById('loading'),
     docBox: document.getElementById('document'),
+    // 加密文档的密码弹窗
+    passwordModal: document.getElementById('password-modal'),
+    passwordForm: document.getElementById('password-form'),
+    passwordFileName: document.getElementById('password-file-name'),
+    passwordInput: document.getElementById('password-input'),
+    passwordError: document.getElementById('password-error'),
+    passwordCancel: document.getElementById('password-cancel'),
+    passwordSubmit: document.getElementById('password-submit'),
   };
 
   function errorText(err) {
@@ -62,14 +70,73 @@ import * as docxApi from '@apollo-design/docx-preview';
     return String(err);
   }
 
-  // OLE2 compound-file magic (D0 CF 11 E0 ...): legacy binary documents —
-  // old .doc, and .wps as still saved by default even by recent WPS Office.
-  // JSZip can only open zip/OOXML packages, so detect this upfront and give
-  // a targeted message instead of a cryptic zip error.
-  function isLegacyBinary(buffer) {
-    if (!buffer || buffer.byteLength < 4) return false;
-    var b = new Uint8Array(buffer, 0, 4);
-    return b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
+  // 容器分类(ooxml / 加密 / 旧版二进制 .wps-.doc)由核心库统一判断,
+  // 与 vue、react 两个组件包共用同一套实现。
+  // 加密文档由核心库的 decryptDocx 解密,本文件只负责密码弹窗。
+
+  // ── 加密文档:密码弹窗 ──────────────────────────────────────────────
+  var pendingEncrypted = null; // { buffer, label }
+
+  function setPasswordBusy(busy) {
+    els.passwordSubmit.disabled = busy;
+    els.passwordCancel.disabled = busy;
+    els.passwordInput.disabled = busy;
+    els.passwordSubmit.textContent = busy ? '解密中…' : '确定';
+  }
+
+  function showPasswordPrompt(label) {
+    els.passwordFileName.textContent = label || '文档';
+    els.passwordInput.value = '';
+    els.passwordError.hidden = true;
+    setPasswordBusy(false);
+    els.passwordModal.hidden = false;
+    els.passwordInput.focus();
+  }
+
+  function hidePasswordPrompt() {
+    els.passwordModal.hidden = true;
+    pendingEncrypted = null;
+  }
+
+  function backToEmptyState() {
+    setLoading(false);
+    resetDocument();
+    els.empty.hidden = false;
+    applyChrome();
+  }
+
+  function submitPassword() {
+    if (!pendingEncrypted) return;
+    var password = els.passwordInput.value;
+    if (!password) {
+      els.passwordInput.focus();
+      return;
+    }
+    var target = pendingEncrypted;
+    setPasswordBusy(true);
+    els.passwordError.hidden = true;
+    api
+      .decryptDocx(target.buffer, password)
+      .then(function (decrypted) {
+        hidePasswordPrompt();
+        return openBuffer(decrypted, target.label);
+      })
+      .catch(function (err) {
+        if (err && err.name === 'DocxPasswordError') {
+          setPasswordBusy(false);
+          els.passwordError.hidden = false;
+          els.passwordInput.value = '';
+          els.passwordInput.focus();
+          return;
+        }
+        // 不支持的加密方式(Office 2007 Standard / 证书加密等)
+        hidePasswordPrompt();
+        backToEmptyState();
+        showError(
+          '无法打开' + (target.label ? '「' + target.label + '」' : '文档'),
+          errorText(err) + ' —— 该加密方式暂不支持,请在 Word / WPS 里取消密码后另存为 .docx。',
+        );
+      });
   }
 
   function showError(title, detail) {
@@ -433,7 +500,16 @@ import * as docxApi from '@apollo-design/docx-preview';
     els.empty.hidden = true;
     setLoading(true);
 
-    if (isLegacyBinary(buffer)) {
+    var kind = api.detectOfficeFileKind ? api.detectOfficeFileKind(buffer) : 'unknown';
+    if (kind === 'encrypted') {
+      // 交给密码弹窗;字节先存着,等用户输入(见 submitPassword)
+      setLoading(false);
+      els.empty.hidden = true;
+      pendingEncrypted = { buffer: buffer, label: label };
+      showPasswordPrompt(label);
+      return Promise.resolve();
+    }
+    if (kind === 'legacy-binary') {
       setLoading(false);
       els.empty.hidden = false;
       applyChrome();
@@ -694,6 +770,24 @@ import * as docxApi from '@apollo-design/docx-preview';
     openLocalFile(els.fileInput.files && els.fileInput.files[0]);
     // Reset so picking the same file twice still fires change.
     els.fileInput.value = '';
+  });
+
+  // 密码弹窗:提交 / 取消 / Esc
+  els.passwordForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    submitPassword();
+  });
+
+  els.passwordCancel.addEventListener('click', function () {
+    hidePasswordPrompt();
+    backToEmptyState();
+  });
+
+  els.passwordInput.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      hidePasswordPrompt();
+      backToEmptyState();
+    }
   });
 
   // Drag & drop anywhere on the page (the drop zone is only visible in the

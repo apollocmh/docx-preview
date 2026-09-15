@@ -4,7 +4,7 @@ layout: home
 hero:
   name: docx-preview
   text: 将 DOCX 渲染为语义化 HTML
-  tagline: 公文级版式保真 · 重排分页引擎 · Browser / Vue / React 三版查看器
+  tagline: 公文级版式保真 · 重排分页引擎 · Browser / Vue / React / Svelte 四版查看器
   actions:
     - theme: brand
       text: 快速开始

@@ -68,6 +68,7 @@ export default defineConfig({
           { text: 'Browser 原生', link: '/demos/browser/', target: '_blank' },
           { text: 'vue', link: '/demos/vue/', target: '_blank' },
           { text: 'react', link: '/demos/react/', target: '_blank' },
+          { text: 'svelte', link: '/demos/svelte/', target: '_blank' },
         ],
       },
       { text: 'npm', link: 'https://www.npmjs.com/package/@apollo-design/docx-preview' },

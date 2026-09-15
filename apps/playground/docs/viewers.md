@@ -1,20 +1,21 @@
 # 查看器组件
 
-三版查看器共享同一套实现：WPS 风格工具栏、翻页器、缩放（适应宽度/百分比）、下载、缩略图侧栏、Office 式页角裁切标记，均默认启用重排分页。
+四版查看器共享同一套实现：WPS 风格工具栏、翻页器、缩放（适应宽度/百分比）、下载、缩略图侧栏、Office 式页角裁切标记、加密文档密码弹窗，均默认启用重排分页。
 
 ## 在线 Demo
 
-- [Browser 原生 Demo](/demos/browser/)
+- [Browser 原生 Demo](/demos/browser/) · [Vue Demo](/demos/vue/) · [React Demo](/demos/react/) · [Svelte Demo](/demos/svelte/)
 
 Demo 默认加载站点内置的 `demo.docx`，也可以通过文件选择器预览本地文档（纯浏览器解析，不上传服务器）。
 
 ## 组件 Props / 事件
 
-React 与 Vue 组件接口一致：
+Vue / React / Svelte 三个组件接口一致（Svelte 用 `class` 而不是 `className`）：
 
 | Prop | 类型 | 说明 |
 |---|---|---|
-| `data` | `Blob \| ArrayBuffer \| Uint8Array` | 文档数据，变化即重渲染 |
+| `url` | `string \| null` | 文档地址，默认 GET 读取；变化即重新加载。为空时显示空态 |
+| `customRequest` | `(url) => Promise<Blob \| ArrayBuffer \| Uint8Array \| null>` | 自定义请求（鉴权头等）；缺省用 `fetch` GET |
 | `name` | `string` | 下载文件名 |
 | `initialScale` | `'fit' \| number` | 初始缩放：适应宽度或百分比 |
 | `showThumbs` | `boolean` | 初始是否显示缩略图侧栏 |
@@ -41,3 +42,5 @@ React 与 Vue 组件接口一致：
 :::
 
 旧式二进制文档（老 `.doc`、`.wps`）会被预先识别并给出"另存为 .docx"的明确提示；只有 OOXML 包可以渲染。
+
+带打开密码的 `.docx`（ECMA-376 Agile 加密）由核心库 `decryptDocx` 解密：查看器会弹出密码框，密码错误在弹窗内提示，取消则回到空态。Office 2007 的 Standard 加密与证书加密暂不支持，会给出对应提示。

@@ -5,7 +5,7 @@
 // components bind to.
 import { computed, getCurrentScope, onScopeDispose, ref, watch } from 'vue'
 import type { Ref } from 'vue'
-import { renderAsync } from '@apollo-design/docx-preview'
+import { detectOfficeFileKind, decryptDocx, DocxPasswordError, renderAsync } from '@apollo-design/docx-preview'
 import type { Options } from '@apollo-design/docx-preview'
 
 // Zoom-button range. Stepping clamps here so a step never strands the
@@ -36,13 +36,8 @@ export interface DocxViewerOptions {
   onError?: (error: unknown) => void
 }
 
-// OLE2 compound-file magic (D0 CF 11 E0 ...): legacy binary documents —
-// old .doc, and .wps as still saved by default even by recent WPS Office.
-function isLegacyBinary(buffer: ArrayBuffer): boolean {
-  if (!buffer || buffer.byteLength < 4) return false
-  const b = new Uint8Array(buffer, 0, 4)
-  return b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0
-}
+// Container classification (ooxml / encrypted / legacy binary .wps-.doc) lives
+// in the core library, so the Vue, React and standalone viewers all agree.
 
 function errorText(err: unknown): string {
   if (err && typeof err === 'object' && 'message' in err) return String((err as Error).message)
@@ -84,6 +79,11 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
   // shows it regardless of this flag.
   const thumbsVisible = ref(options.showThumbs !== false)
   const dropdownOpen = ref(false)
+  // Password prompt for encrypted documents. `null` = no dialog; the host
+  // component renders the modal from this state and calls submitPassword().
+  const passwordPrompt = ref<{ fileName: string; wrong: boolean; busy: boolean } | null>(null)
+  // The encrypted bytes wait here until the password arrives.
+  let pendingEncrypted: { buffer: ArrayBuffer; label: string } | null = null
 
   const pagerShown = computed(() => pageCount.value > 1)
   const thumbsShown = computed(() => thumbsVisible.value && pageCount.value > 1 && docLoaded.value)
@@ -340,7 +340,16 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     dropdownOpen.value = false
     loading.value = true
 
-    if (isLegacyBinary(buffer)) {
+    const kind = detectOfficeFileKind(buffer)
+    if (kind === 'encrypted') {
+      // Hand the password question to the host component; the bytes stay pending
+      // until the user answers (see submitPassword / cancelPassword).
+      loading.value = false
+      pendingEncrypted = { buffer, label }
+      passwordPrompt.value = { fileName: label, wrong: false, busy: false }
+      return
+    }
+    if (kind === 'legacy-binary') {
       loading.value = false
       const legacyErr = new Error('legacy binary document (.wps/.doc), not OOXML')
       error.value = {
@@ -353,7 +362,6 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
       options.onError?.(legacyErr)
       return
     }
-
     const renderOptions: Partial<Options> = {
       hideWrapperOnPrint: true,
       paginate: true,
@@ -538,6 +546,42 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     error.value = null
     loading.value = false
   }
+
+  /** 弹窗提交密码：解密成功后继续渲染；密码错误则留在弹窗里提示。 */
+  async function submitPassword(password: string) {
+    if (!pendingEncrypted || !passwordPrompt.value) return
+    const { buffer, label } = pendingEncrypted
+    passwordPrompt.value.busy = true
+    passwordPrompt.value.wrong = false
+    try {
+      const decrypted = await decryptDocx(buffer, password)
+      pendingEncrypted = null
+      passwordPrompt.value = null
+      await openBuffer(decrypted, label)
+    } catch (err) {
+      if (err instanceof DocxPasswordError) {
+        passwordPrompt.value.busy = false
+        passwordPrompt.value.wrong = true
+        return
+      }
+      // 不支持的加密方式（Office 2007 Standard / 证书加密等）
+      pendingEncrypted = null
+      passwordPrompt.value = null
+      loading.value = false
+      error.value = {
+        title: '无法打开' + (label ? '「' + label + '」' : '文档'),
+        detail: errorText(err) + ' —— 该加密方式暂不支持,请在 Word / WPS 里取消密码后另存为 .docx。',
+      }
+      options.onError?.(err)
+    }
+  }
+
+  /** 用户放弃输入密码 → 回到空态。 */
+  function cancelPassword() {
+    pendingEncrypted = null
+    passwordPrompt.value = null
+    close()
+  }
   return {
     // element refs (bound by the host components)
     ...refs,
@@ -551,6 +595,7 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     scaleMode,
     thumbsVisible,
     dropdownOpen,
+    passwordPrompt,
     pagerShown,
     thumbsShown,
     canPrev,
@@ -569,6 +614,8 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     download,
     destroy,
     close,
+    submitPassword,
+    cancelPassword,
   }
 }
 

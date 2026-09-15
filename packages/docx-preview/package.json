@@ -1,6 +1,6 @@
 {
   "name": "@apollo-design/docx-preview",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "Render DOCX documents as semantic HTML, with a standalone iframe-embeddable viewer",
   "keywords": [
     "word",
@@ -50,7 +50,9 @@
     "@microsoft/api-extractor": "catalog:",
     "terser": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "@noble/ciphers": "catalog:",
+    "@noble/hashes": "catalog:"
   },
   "scripts": {
     "build": "node scripts/build-lib.mjs",

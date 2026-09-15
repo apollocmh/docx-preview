@@ -166,6 +166,33 @@
           <div id="document" class="document"></div>
         </main>
       </div>
+
+      <!-- 加密文档:密码弹窗 -->
+      <div
+        id="password-modal"
+        class="password-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="文档需要密码"
+        hidden
+      >
+        <form id="password-form" class="password-card">
+          <h2 class="password-title">文档已加密</h2>
+          <p class="password-hint">「<span id="password-file-name">文档</span>」需要密码才能打开。</p>
+          <input
+            id="password-input"
+            class="password-input"
+            type="password"
+            autocomplete="current-password"
+            placeholder="请输入文档密码"
+          />
+          <p id="password-error" class="password-error" hidden>密码不正确，请重试。</p>
+          <div class="password-actions">
+            <button id="password-cancel" class="password-btn" type="button">取消</button>
+            <button id="password-submit" class="password-btn primary" type="submit">确定</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!--

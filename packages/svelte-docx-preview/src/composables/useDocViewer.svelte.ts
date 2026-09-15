@@ -1,10 +1,11 @@
-// Core viewer logic, ported from apps/viewer/viewer.js. UI-facing values are
-// React state; everything else (library render output, thumbnail clones, page
-// corners, zoom transforms) is imperative DOM work against element refs.
-// A ref mirror (stateRef) lets the once-registered global listeners read
-// fresh values.
-import { useEffect, useRef, useState } from 'react'
-import type { RefObject } from 'react'
+// Core viewer logic, ported from apps/viewer/viewer.js — the Svelte 5 twin of
+// the vue/react wrappers. Reactive values are runes ($state / $derived);
+// everything else (library render output, thumbnail clones, page corners, zoom
+// transforms) is imperative DOM work against the element refs the host
+// component hands over.
+//
+// Unlike React, rune reads inside plain functions see the live value, so no
+// state mirror is needed here.
 import { detectOfficeFileKind, decryptDocx, DocxPasswordError, renderAsync } from '@apollo-design/docx-preview'
 import type { Options } from '@apollo-design/docx-preview'
 
@@ -20,9 +21,10 @@ const THUMB_WIDTH = 96 // matches .thumb-page width in viewer.css
 const CORNER_NAMES = ['tl', 'tr', 'bl', 'br'] as const
 
 export interface DocxViewerRefs {
-  stage: RefObject<HTMLElement | null>
-  docBox: RefObject<HTMLElement | null>
-  thumbs: RefObject<HTMLElement | null>
+  /** Element getters — the component binds them with `bind:this`. */
+  stage: () => HTMLElement | undefined
+  docBox: () => HTMLElement | undefined
+  thumbs: () => HTMLElement | undefined
 }
 
 export interface DocxViewerOptions {
@@ -36,16 +38,13 @@ export interface DocxViewerOptions {
   onError?: (error: unknown) => void
 }
 
-// Container classification (ooxml / encrypted / legacy binary .wps-.doc) lives
-// in the core library, so the Vue, React and standalone viewers all agree.
+/** 自定义文档请求(可附加鉴权头等),返回文档数据 */
+export type DocxCustomRequest = (url: string) => Promise<Blob | ArrayBuffer | Uint8Array | null>
 
 function errorText(err: unknown): string {
   if (err && typeof err === 'object' && 'message' in err) return String((err as Error).message)
   return String(err)
 }
-
-/** 自定义文档请求(可附加鉴权头等),返回文档数据 */
-export type DocxCustomRequest = (url: string) => Promise<Blob | ArrayBuffer | Uint8Array | null>
 
 // Download-button fallback name: last path segment of the URL.
 function nameFromUrl(url: string): string {
@@ -68,29 +67,20 @@ function initialScaleMode(value: 'fit' | number | undefined): 'fit' | number {
 
 export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = {}) {
   // ── UI state ───────────────────────────────────────────────────────────
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<{ title: string; detail: string } | null>(null)
-  const [docLoaded, setDocLoaded] = useState(false)
-  const [currentPage, setCurrentPage] = useState(0)
-  const [pageCount, setPageCount] = useState(0)
-  const [currentScale, setCurrentScale] = useState(1)
-  const [scaleMode, setScaleMode] = useState<'fit' | number>(() =>
-    initialScaleMode(options.initialScale),
-  )
-  const [thumbsVisible, setThumbsVisible] = useState(options.showThumbs !== false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  // Password prompt for encrypted documents. `null` = no dialog; the component
-  // renders the modal from this state and calls submitPassword().
-  const [passwordPrompt, setPasswordPrompt] = useState<{
-    fileName: string
-    wrong: boolean
-    busy: boolean
-  } | null>(null)
-  // The encrypted bytes wait here until the password arrives.
-  const pendingEncrypted = useRef<{ buffer: ArrayBuffer; label: string } | null>(null)
+  let loading = $state(false)
+  let error = $state<{ title: string; detail: string } | null>(null)
+  let docLoaded = $state(false)
+  let currentPage = $state(0)
+  let pageCount = $state(0)
+  let currentScale = $state(1)
+  let scaleMode = $state<'fit' | number>(initialScaleMode(options.initialScale))
+  let thumbsVisible = $state(options.showThumbs !== false)
+  let dropdownOpen = $state(false)
+  // Password prompt for encrypted documents. `null` = no dialog.
+  let passwordPrompt = $state<{ fileName: string; wrong: boolean; busy: boolean } | null>(null)
 
   // ── Mutable internals (live DOM produced by the library) ───────────────
-  const it = useRef({
+  const it = {
     docName: '',
     // The opened document kept as a Blob so the download button works
     // regardless of the input type (Blob / ArrayBuffer / Uint8Array).
@@ -99,61 +89,56 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     sections: [] as HTMLElement[],
     naturalWidth: 0,
     naturalHeight: 0,
-    currentPage: 0, // authoritative copy (state mirrors it for rendering)
     pageObserver: null as IntersectionObserver | null,
     thumbPageSynced: -1,
-  })
-  // Latest-value mirror for the once-registered global listeners.
-  const stateRef = useRef({ docLoaded, currentPage, scaleMode, thumbsVisible, currentScale })
-  stateRef.current = { docLoaded, currentPage, scaleMode, thumbsVisible, currentScale }
-  const optionsRef = useRef(options)
-  optionsRef.current = options
+    /** Encrypted bytes waiting for the password. */
+    pendingEncrypted: null as { buffer: ArrayBuffer; label: string } | null,
+  }
 
-  const pagerShown = pageCount > 1
-  const thumbsShown = thumbsVisible && pageCount > 1 && docLoaded
-  const canPrev = docLoaded && currentPage > 0
-  const canNext = docLoaded && currentPage < pageCount - 1
-  const canZoomOut = docLoaded && currentScale > SCALE_MIN + 1e-6
-  const canZoomIn = docLoaded && currentScale < SCALE_MAX - 1e-6
-  const scaleLabel = scaleMode === 'fit' ? '适应宽度' : Math.round(scaleMode * 100) + '%'
+  const pagerShown = $derived(pageCount > 1)
+  const thumbsShown = $derived(thumbsVisible && pageCount > 1 && docLoaded)
+  const canPrev = $derived(docLoaded && currentPage > 0)
+  const canNext = $derived(docLoaded && currentPage < pageCount - 1)
+  const canZoomOut = $derived(docLoaded && currentScale > SCALE_MIN + 1e-6)
+  const canZoomIn = $derived(docLoaded && currentScale < SCALE_MAX - 1e-6)
+  const scaleLabel = $derived(
+    scaleMode === 'fit' ? '适应宽度' : Math.round((scaleMode as number) * 100) + '%',
+  )
 
   // ── Thumbnails ─────────────────────────────────────────────────────────
   // Deep clones of page sections shrunk with a CSS transform — no re-render.
 
   function syncThumbs() {
-    const box = refs.thumbs.current
+    const box = refs.thumbs()
     if (!box) return
     const items = box.children
-    const page = it.current.currentPage
     for (let i = 0; i < items.length; i++) {
-      items[i].classList.toggle('current', Number(items[i].getAttribute('data-page')) === page)
+      items[i].classList.toggle('current', Number(items[i].getAttribute('data-page')) === currentPage)
     }
-    const shown = stateRef.current.thumbsVisible && items.length > 1 && stateRef.current.docLoaded
-    if (shown && it.current.thumbPageSynced !== page && items[page]) {
-      it.current.thumbPageSynced = page
-      ;(items[page] as HTMLElement).scrollIntoView({ block: 'nearest' })
+    if (thumbsShown && it.thumbPageSynced !== currentPage && items[currentPage]) {
+      it.thumbPageSynced = currentPage
+      ;(items[currentPage] as HTMLElement).scrollIntoView({ block: 'nearest' })
     }
   }
 
   function buildThumbs() {
-    const box = refs.thumbs.current
+    const box = refs.thumbs()
     if (!box) return
     box.innerHTML = ''
-    it.current.thumbPageSynced = -1
-    const sections = it.current.sections
-    if (sections.length <= 1 || !it.current.naturalWidth) return
+    it.thumbPageSynced = -1
+    if (it.sections.length <= 1 || !it.naturalWidth) return
 
-    const scale = (THUMB_WIDTH - 2) / it.current.naturalWidth // 2px = .thumb-page borders
-    for (let i = 0; i < sections.length; i++) {
+    const scale = (THUMB_WIDTH - 2) / it.naturalWidth // 2px = .thumb-page borders
+    for (let i = 0; i < it.sections.length; i++) {
       const item = document.createElement('div')
       item.className = 'thumb'
       item.setAttribute('data-page', String(i))
 
       const page = document.createElement('div')
       page.className = 'thumb-page'
-      page.style.height = Math.ceil(sections[i].offsetHeight * scale) + 'px'
+      page.style.height = Math.ceil(it.sections[i].offsetHeight * scale) + 'px'
 
-      const clone = sections[i].cloneNode(true) as HTMLElement
+      const clone = it.sections[i].cloneNode(true) as HTMLElement
       clone.removeAttribute('data-page')
       clone.style.transform = 'scale(' + scale + ')'
       clone.style.transformOrigin = 'top left'
@@ -175,18 +160,18 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
   // .docx-wrapper with a transform inside an explicitly-sized box.
 
   function fitScale() {
-    const stage = refs.stage.current
-    if (!it.current.naturalWidth || !stage) return 1
+    const stage = refs.stage()
+    if (!it.naturalWidth || !stage) return 1
     const avail = stage.clientWidth - STAGE_PADDING * 2
-    return Math.min(FIT_MAX, avail / it.current.naturalWidth)
+    return Math.min(FIT_MAX, avail / it.naturalWidth)
   }
 
   function applyScale() {
-    const stage = refs.stage.current
-    const docBox = refs.docBox.current
-    const wrapperEl = it.current.wrapperEl
-    const naturalWidth = it.current.naturalWidth
-    if (!stateRef.current.docLoaded || !wrapperEl || !naturalWidth || !stage || !docBox) return
+    const stage = refs.stage()
+    const docBox = refs.docBox()
+    const wrapperEl = it.wrapperEl
+    const naturalWidth = it.naturalWidth
+    if (!docLoaded || !wrapperEl || !naturalWidth || !stage || !docBox) return
 
     // Keep the same relative scroll position across the zoom change.
     const maxY = stage.scrollHeight - stage.clientHeight
@@ -194,11 +179,10 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     const ratioY = maxY > 0 ? stage.scrollTop / maxY : 0
     const ratioX = maxX > 0 ? stage.scrollLeft / maxX : 0
 
-    const mode = stateRef.current.scaleMode
-    const scale = mode === 'fit' ? fitScale() : mode
-    setCurrentScale(scale)
+    const scale = scaleMode === 'fit' ? fitScale() : (scaleMode as number)
+    currentScale = scale
     docBox.style.width = Math.ceil(naturalWidth * scale) + 'px'
-    docBox.style.height = Math.ceil(it.current.naturalHeight * scale) + 'px'
+    docBox.style.height = Math.ceil(it.naturalHeight * scale) + 'px'
     // Pin the wrapper to the natural content width so the top-left-origin
     // transform lines up exactly with the zoom box.
     wrapperEl.style.width = naturalWidth + 'px'
@@ -214,33 +198,24 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
   function zoomStep(direction: 1 | -1) {
     // currentScale carries sub-pixel fit error (e.g. 0.99998); snap to the
     // nearest grid line within tolerance first, or the buttons look dead.
-    let steps = stateRef.current.currentScale / SCALE_STEP
+    let steps = currentScale / SCALE_STEP
     const nearest = Math.round(steps)
     if (Math.abs(steps - nearest) < 0.01) steps = nearest
-    const next =
-      direction > 0 ? (Math.floor(steps) + 1) * SCALE_STEP : (Math.ceil(steps) - 1) * SCALE_STEP
-    applyScaleWith(Math.max(SCALE_MIN, Math.min(SCALE_MAX, Math.round(next * 100) / 100)))
-  }
-
-  // applyScale reads scaleMode from stateRef; callers that just changed the
-  // mode must update the mirror first (setScaleMode alone lands next render).
-  function applyScaleWith(mode: 'fit' | number) {
-    stateRef.current.scaleMode = mode
-    setScaleMode(mode)
+    const next = direction > 0 ? (Math.floor(steps) + 1) * SCALE_STEP : (Math.ceil(steps) - 1) * SCALE_STEP
+    scaleMode = Math.max(SCALE_MIN, Math.min(SCALE_MAX, Math.round(next * 100) / 100))
     applyScale()
   }
 
   function setScale(value: string) {
-    setDropdownOpen(false)
-    applyScaleWith(value === 'fit' ? 'fit' : parseFloat(value))
+    dropdownOpen = false
+    scaleMode = value === 'fit' ? 'fit' : parseFloat(value)
+    applyScale()
   }
 
   function toggleThumbs() {
-    const next = !stateRef.current.thumbsVisible
-    setThumbsVisible(next)
-    stateRef.current.thumbsVisible = next
+    thumbsVisible = !thumbsVisible
     // The sidebar eats stage width — re-fit so fit-width stays correct.
-    if (stateRef.current.docLoaded && stateRef.current.scaleMode === 'fit') applyScale()
+    if (docLoaded && scaleMode === 'fit') applyScale()
   }
 
   // ── Page corners ───────────────────────────────────────────────────────
@@ -279,22 +254,17 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
   // ── Pages ──────────────────────────────────────────────────────────────
 
   function scrollStageTo(element: HTMLElement) {
-    const stage = refs.stage.current
+    const stage = refs.stage()
     if (!stage) return
     const paddingTop = parseFloat(getComputedStyle(stage).paddingTop) || 0
     stage.scrollTop =
-      stage.scrollTop +
-      (element.getBoundingClientRect().top - stage.getBoundingClientRect().top) -
-      paddingTop
+      stage.scrollTop + (element.getBoundingClientRect().top - stage.getBoundingClientRect().top) - paddingTop
   }
 
   function goToPage(index: number) {
-    const sections = it.current.sections
-    if (!stateRef.current.docLoaded || sections.length === 0) return
-    const clamped = Math.max(0, Math.min(index, sections.length - 1))
-    it.current.currentPage = clamped
-    setCurrentPage(clamped)
-    scrollStageTo(sections[clamped])
+    if (!docLoaded || it.sections.length === 0) return
+    currentPage = Math.max(0, Math.min(index, it.sections.length - 1))
+    scrollStageTo(it.sections[currentPage])
   }
 
   function jumpToPage(inputValue: string) {
@@ -303,16 +273,15 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
   }
 
   function trackPages() {
-    if (it.current.pageObserver) {
-      it.current.pageObserver.disconnect()
-      it.current.pageObserver = null
+    if (it.pageObserver) {
+      it.pageObserver.disconnect()
+      it.pageObserver = null
     }
-    const stage = refs.stage.current
-    const sections = it.current.sections
-    if (typeof window.IntersectionObserver !== 'function' || sections.length <= 1 || !stage) return
+    const stage = refs.stage()
+    if (typeof window.IntersectionObserver !== 'function' || it.sections.length <= 1 || !stage) return
 
     const ratios: number[] = []
-    it.current.pageObserver = new IntersectionObserver(
+    it.pageObserver = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           const index = Number((entry.target as HTMLElement).getAttribute('data-page'))
@@ -326,68 +295,64 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
             bestIndex = j
           }
         }
-        if (bestIndex >= 0 && bestRatio > 0) {
-          it.current.currentPage = bestIndex
-          setCurrentPage(bestIndex)
-        }
+        if (bestIndex >= 0 && bestRatio > 0) currentPage = bestIndex
       },
       { root: stage, threshold: [0, 0.25, 0.5, 0.75, 1.0] },
     )
-    for (const section of sections) it.current.pageObserver.observe(section)
+    for (const section of it.sections) it.pageObserver.observe(section)
   }
 
   // ── Document loading ───────────────────────────────────────────────────
 
   function resetDocument() {
-    if (it.current.pageObserver) {
-      it.current.pageObserver.disconnect()
-      it.current.pageObserver = null
+    if (it.pageObserver) {
+      it.pageObserver.disconnect()
+      it.pageObserver = null
     }
-    const docBox = refs.docBox.current
-    const thumbs = refs.thumbs.current
+    const docBox = refs.docBox()
+    const thumbs = refs.thumbs()
     if (docBox) {
       docBox.innerHTML = ''
       docBox.style.width = ''
       docBox.style.height = ''
     }
     if (thumbs) thumbs.innerHTML = ''
-    it.current.thumbPageSynced = -1
-    it.current.wrapperEl = null
-    it.current.sections = []
-    it.current.naturalWidth = 0
-    it.current.naturalHeight = 0
-    it.current.currentPage = 0
-    setCurrentPage(0)
-    setPageCount(0)
-    setDocLoaded(false)
+    it.thumbPageSynced = -1
+    it.wrapperEl = null
+    it.sections = []
+    it.naturalWidth = 0
+    it.naturalHeight = 0
+    currentPage = 0
+    pageCount = 0
+    docLoaded = false
   }
 
   async function openBuffer(buffer: ArrayBuffer, label: string) {
     resetDocument()
-    setError(null)
-    setDropdownOpen(false)
-    setLoading(true)
+    error = null
+    dropdownOpen = false
+    loading = true
 
     const kind = detectOfficeFileKind(buffer)
     if (kind === 'encrypted') {
       // Hand the password question to the component; the bytes stay pending
       // until the user answers (see submitPassword / cancelPassword).
-      setLoading(false)
-      pendingEncrypted.current = { buffer, label }
-      setPasswordPrompt({ fileName: label, wrong: false, busy: false })
+      loading = false
+      it.pendingEncrypted = { buffer, label }
+      passwordPrompt = { fileName: label, wrong: false, busy: false }
       return
     }
     if (kind === 'legacy-binary') {
-      setLoading(false)
+      loading = false
       const legacyErr = new Error('legacy binary document (.wps/.doc), not OOXML')
-      setError({
+      error = {
         title: '无法打开' + (label ? '「' + label + '」' : '文档'),
         detail:
           '这是旧版二进制文档格式(.wps / .doc),不是 OOXML(.docx)。' +
           '即使是新版 WPS Office,默认保存的 .wps 仍是二进制格式。' +
           '请用 WPS 或 Word 将其另存为 .docx 后重试。',
-      })
-      optionsRef.current.onError?.(legacyErr)
+      }
+      options.onError?.(legacyErr)
       return
     }
 
@@ -397,17 +362,17 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
       // 'experimental' only gates tab-stop computation, which 公文版记
       // lines (right-aligned tab stops) depend on.
       experimental: true,
-      ...optionsRef.current.renderOptions,
+      ...options.renderOptions,
     }
 
     try {
-      const docBox = refs.docBox.current
-      const stage = refs.stage.current
+      const docBox = refs.docBox()
+      const stage = refs.stage()
       if (!docBox || !stage) throw new Error('viewer is not mounted')
       const result = await renderAsync(buffer, docBox, undefined, renderOptions)
 
       const wrapperEl = (docBox.querySelector('.docx-wrapper') as HTMLElement) || docBox
-      it.current.wrapperEl = wrapperEl
+      it.wrapperEl = wrapperEl
 
       const found = wrapperEl.querySelectorAll('section')
       const sections: HTMLElement[] = []
@@ -417,7 +382,7 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
         addPageCorners(section)
         sections.push(section)
       }
-      it.current.sections = sections
+      it.sections = sections
 
       // Natural page size, measured before any transform is applied. The
       // wrapper is a full-width block, so its own width is the stage's —
@@ -427,30 +392,28 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
         naturalWidth = Math.max(naturalWidth, section.offsetWidth)
       }
       if (!naturalWidth) naturalWidth = wrapperEl.scrollWidth
-      it.current.naturalWidth = naturalWidth
-      it.current.naturalHeight = wrapperEl.offsetHeight
-      it.current.currentPage = 0
+      it.naturalWidth = naturalWidth
+      it.naturalHeight = wrapperEl.offsetHeight
 
-      stateRef.current.docLoaded = true
-      setDocLoaded(true)
-      setPageCount(sections.length)
-      setCurrentPage(0)
+      docLoaded = true
+      pageCount = sections.length
+      currentPage = 0
       applyScale()
       buildThumbs()
       trackPages()
       stage.scrollTop = 0
       stage.scrollLeft = 0
-      optionsRef.current.onRendered?.(result)
+      options.onRendered?.(result)
     } catch (err) {
       console.error(err)
       resetDocument()
-      setError({
+      error = {
         title: '无法打开' + (label ? '「' + label + '」' : '文档'),
         detail: errorText(err) + ' —— 请确认这是有效且未加密的 .docx 文件。',
-      })
-      optionsRef.current.onError?.(err)
+      }
+      options.onError?.(err)
     } finally {
-      setLoading(false)
+      loading = false
     }
   }
 
@@ -459,8 +422,8 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     if (!data) return
     const docName =
       name || (typeof File !== 'undefined' && data instanceof File && data.name) || 'document.docx'
-    it.current.docName = docName
-    it.current.docBlob = data instanceof Blob ? data : new Blob([data as ArrayBuffer])
+    it.docName = docName
+    it.docBlob = data instanceof Blob ? data : new Blob([data as ArrayBuffer])
 
     if (data instanceof Blob) {
       let buffer: ArrayBuffer
@@ -472,8 +435,8 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
           reader.readAsArrayBuffer(data)
         })
       } catch (err) {
-        setError({ title: '读取文件失败', detail: '浏览器无法读取「' + docName + '」,请重试。' })
-        optionsRef.current.onError?.(err)
+        error = { title: '读取文件失败', detail: '浏览器无法读取「' + docName + '」,请重试。' }
+        options.onError?.(err)
         return
       }
       return openBuffer(buffer, docName)
@@ -484,8 +447,8 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
   /** Opens a document from a URL — plain GET by default; pass customRequest to customize the request (auth headers, tokens, …). */
   async function openUrl(url: string, customRequest?: DocxCustomRequest, name?: string) {
     if (!url) return
-    setLoading(true)
-    setError(null)
+    loading = true
+    error = null
     try {
       let data: Blob | ArrayBuffer | Uint8Array | null
       if (customRequest) {
@@ -499,23 +462,22 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
       return await open(data, name || nameFromUrl(url))
     } catch (err) {
       console.error(err)
-      setError({
+      error = {
         title: '加载文档失败',
         detail: errorText(err) + ' —— 请确认地址可访问(如需鉴权请使用 customRequest)。',
-      })
-      optionsRef.current.onError?.(err)
+      }
+      options.onError?.(err)
     } finally {
-      setLoading(false)
+      loading = false
     }
   }
 
   function download() {
-    const docBlob = it.current.docBlob
-    if (!docBlob) return
-    const objectUrl = URL.createObjectURL(docBlob)
+    if (!it.docBlob) return
+    const objectUrl = URL.createObjectURL(it.docBlob)
     const link = document.createElement('a')
     link.href = objectUrl
-    link.download = it.current.docName || 'document.docx'
+    link.download = it.docName || 'document.docx'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -525,66 +487,72 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
   /** Clears the viewer back to its empty state (no URL to show). */
   function close() {
     resetDocument()
-    setError(null)
-    setLoading(false)
+    error = null
+    loading = false
   }
 
   /** 弹窗提交密码：解密成功后继续渲染；密码错误则留在弹窗里提示。 */
   async function submitPassword(password: string) {
-    const pending = pendingEncrypted.current
+    const pending = it.pendingEncrypted
     if (!pending) return
     const { buffer, label } = pending
-    setPasswordPrompt((current) => (current ? { ...current, busy: true, wrong: false } : current))
+    if (passwordPrompt) {
+      passwordPrompt.busy = true
+      passwordPrompt.wrong = false
+    }
     try {
       const decrypted = await decryptDocx(buffer, password)
-      pendingEncrypted.current = null
-      setPasswordPrompt(null)
+      it.pendingEncrypted = null
+      passwordPrompt = null
       await openBuffer(decrypted, label)
     } catch (err) {
       if (err instanceof DocxPasswordError) {
-        setPasswordPrompt((current) => (current ? { ...current, busy: false, wrong: true } : current))
+        if (passwordPrompt) {
+          passwordPrompt.busy = false
+          passwordPrompt.wrong = true
+        }
         return
       }
       // 不支持的加密方式（Office 2007 Standard / 证书加密等）
-      pendingEncrypted.current = null
-      setPasswordPrompt(null)
-      setLoading(false)
-      setError({
+      it.pendingEncrypted = null
+      passwordPrompt = null
+      loading = false
+      error = {
         title: '无法打开' + (label ? '「' + label + '」' : '文档'),
         detail: errorText(err) + ' —— 该加密方式暂不支持,请在 Word / WPS 里取消密码后另存为 .docx。',
-      })
-      optionsRef.current.onError?.(err)
+      }
+      options.onError?.(err)
     }
   }
 
   /** 用户放弃输入密码 → 回到空态。 */
   function cancelPassword() {
-    pendingEncrypted.current = null
-    setPasswordPrompt(null)
+    it.pendingEncrypted = null
+    passwordPrompt = null
     close()
   }
 
-  // ── Global listeners (registered once, read fresh state via stateRef) ──
+  // ── Global listeners (scoped to the component lifetime) ────────────────
+  // The effect body itself reads no reactive state, so it runs once.
 
-  useEffect(() => {
+  $effect(() => {
     function onWindowResize() {
-      if (stateRef.current.docLoaded && stateRef.current.scaleMode === 'fit') applyScale()
+      if (docLoaded && scaleMode === 'fit') applyScale()
     }
     function onDocumentClick(event: MouseEvent) {
-      if (!(event.target as HTMLElement).closest('.docx-viewer .scale-select')) {
-        setDropdownOpen(false)
-      }
+      if (!(event.target as HTMLElement).closest('.docx-viewer .scale-select')) dropdownOpen = false
     }
     function onDocumentKeydown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setDropdownOpen(false)
+      if (event.key === 'Escape') dropdownOpen = false
 
       const tag = event.target && (event.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       // Only steal navigation keys when this viewer contains the focus.
-      if (!refs.stage.current || !refs.stage.current.contains(event.target as Node)) return
+      const stage = refs.stage()
+      if (!stage || !stage.contains(event.target as Node)) return
       if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp') {
         event.preventDefault()
-        goToPage(stateRef.current.currentPage - 1)
+        goToPage(currentPage - 1)
       } else if (
         event.key === 'ArrowRight' ||
         event.key === 'ArrowDown' ||
@@ -592,11 +560,11 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
         event.key === ' '
       ) {
         event.preventDefault()
-        goToPage(stateRef.current.currentPage + 1)
+        goToPage(currentPage + 1)
       } else if (event.key === 'Home') {
         goToPage(0)
       } else if (event.key === 'End') {
-        goToPage(it.current.sections.length - 1)
+        goToPage(it.sections.length - 1)
       }
     }
 
@@ -607,42 +575,76 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
       window.removeEventListener('resize', onWindowResize)
       document.removeEventListener('click', onDocumentClick)
       document.removeEventListener('keydown', onDocumentKeydown)
-      if (it.current.pageObserver) {
-        it.current.pageObserver.disconnect()
-        it.current.pageObserver = null
+      if (it.pageObserver) {
+        it.pageObserver.disconnect()
+        it.pageObserver = null
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  })
 
-  // currentPage highlight in the sidebar (the Vue port uses a watcher).
-  useEffect(() => {
+  // currentPage highlight in the sidebar.
+  $effect(() => {
+    currentPage
+    thumbsShown
     syncThumbs()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, thumbsShown])
+  })
 
   return {
-    // element refs (bound by the components)
-    ...refs,
     // state
-    loading,
-    error,
-    docLoaded,
-    currentPage,
-    pageCount,
-    currentScale,
-    scaleMode,
-    thumbsVisible,
-    dropdownOpen,
-    setDropdownOpen,
-    passwordPrompt,
-    pagerShown,
-    thumbsShown,
-    canPrev,
-    canNext,
-    canZoomOut,
-    canZoomIn,
-    scaleLabel,
+    get loading() {
+      return loading
+    },
+    get error() {
+      return error
+    },
+    get docLoaded() {
+      return docLoaded
+    },
+    get currentPage() {
+      return currentPage
+    },
+    set currentPage(value: number) {
+      currentPage = value
+    },
+    get pageCount() {
+      return pageCount
+    },
+    get currentScale() {
+      return currentScale
+    },
+    get scaleMode() {
+      return scaleMode
+    },
+    get thumbsVisible() {
+      return thumbsVisible
+    },
+    get dropdownOpen() {
+      return dropdownOpen
+    },
+    get passwordPrompt() {
+      return passwordPrompt
+    },
+    get pagerShown() {
+      return pagerShown
+    },
+    get thumbsShown() {
+      return thumbsShown
+    },
+    get canPrev() {
+      return canPrev
+    },
+    get canNext() {
+      return canNext
+    },
+    get canZoomOut() {
+      return canZoomOut
+    },
+    get canZoomIn() {
+      return canZoomIn
+    },
+    get scaleLabel() {
+      return scaleLabel
+    },
     // actions
     open,
     openUrl,
@@ -655,6 +657,9 @@ export function useDocViewer(refs: DocxViewerRefs, options: DocxViewerOptions = 
     close,
     submitPassword,
     cancelPassword,
+    toggleDropdown(value?: boolean) {
+      dropdownOpen = value === undefined ? !dropdownOpen : value
+    },
   }
 }
 

@@ -2,6 +2,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
 
 const appRoot = dirname(fileURLToPath(import.meta.url))
@@ -22,7 +23,7 @@ export default defineConfig({
   // Same base in dev and prod (GitHub Pages subpath) so import.meta.env.BASE_URL
   // and the VitePress dev proxy (5174 -> 5173) line up without rewrites.
   base: '/docx-preview/',
-  plugins: [vue(), tailwindcss()],
+  plugins: [vue(), svelte(), tailwindcss()],
   resolve: {
     // Only the intra-app `#viewer` alias is needed — it points at a sibling
     // directory, which npm resolution can't express.
@@ -44,6 +45,7 @@ export default defineConfig({
       '@apollo-design/docx-preview',
       '@apollo-design/react-docx-preview',
       '@apollo-design/vue-docx-preview',
+      '@apollo-design/svelte-docx-preview',
     ],
   },
   build: {
@@ -54,6 +56,7 @@ export default defineConfig({
       input: {
         'demos/browser': resolve(appRoot, 'demos/browser/index.html'),
         'demos/react': resolve(appRoot, 'demos/react/index.html'),
+        'demos/svelte': resolve(appRoot, 'demos/svelte/index.html'),
         'demos/vue': resolve(appRoot, 'demos/vue/index.html'),
       },
     },

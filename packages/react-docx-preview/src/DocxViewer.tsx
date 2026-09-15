@@ -6,7 +6,7 @@
 // via `customRequest`, e.g. for authenticated endpoints) and re-renders when it
 // changes; initialScale/showThumbs/renderOptions describe the initial mount
 // (like viewer.html's URL params).
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { Options } from '@apollo-design/docx-preview'
 import { useDocViewer } from './hooks/useDocViewer'
@@ -75,6 +75,27 @@ export function DocxViewer({
 
   const hasUrl = typeof url === 'string' && url.length > 0
   const showEmpty = !hasUrl && !api.loading
+
+  // ── 密码弹窗（加密文档） ──
+  const [passwordValue, setPasswordValue] = useState('')
+  const passwordInput = useRef<HTMLInputElement>(null)
+  const prompt = api.passwordPrompt
+  useEffect(() => {
+    if (!prompt) return
+    // 打开弹窗、以及密码错误后回到输入态时，清空并重新聚焦
+    setPasswordValue('')
+    passwordInput.current?.focus()
+  }, [prompt])
+
+  async function onPasswordSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!passwordValue) {
+      passwordInput.current?.focus()
+      return
+    }
+    await api.submitPassword(passwordValue)
+    passwordInput.current?.focus()
+  }
 
   useEffect(() => {
     if (hasUrl && url) api.openUrl(url, requestRef.current, name)
@@ -265,6 +286,45 @@ export function DocxViewer({
           )}
         </main>
       </div>
+
+      {/* 加密文档：密码弹窗 */}
+      {prompt && (
+        <div className="password-modal" role="dialog" aria-modal="true" aria-label="文档需要密码">
+          <form className="password-card" onSubmit={onPasswordSubmit}>
+            <h2 className="password-title">文档已加密</h2>
+            <p className="password-hint">「{prompt.fileName}」需要密码才能打开。</p>
+            <input
+              ref={passwordInput}
+              className="password-input"
+              type="password"
+              autoComplete="current-password"
+              placeholder="请输入文档密码"
+              value={passwordValue}
+              disabled={prompt.busy}
+              onChange={(event) => setPasswordValue(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') api.cancelPassword()
+              }}
+            />
+            <p className="password-error" hidden={!prompt.wrong}>
+              密码不正确，请重试。
+            </p>
+            <div className="password-actions">
+              <button
+                className="password-btn"
+                type="button"
+                disabled={prompt.busy}
+                onClick={api.cancelPassword}
+              >
+                取消
+              </button>
+              <button className="password-btn primary" type="submit" disabled={prompt.busy}>
+                {prompt.busy ? '解密中…' : '确定'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

@@ -12,13 +12,16 @@
   "dependencies": {
     "@apollo-design/docx-preview": "workspace:*",
     "@apollo-design/react-docx-preview": "workspace:*",
+    "@apollo-design/svelte-docx-preview": "workspace:*",
     "@apollo-design/vue-docx-preview": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "svelte": "catalog:",
     "vue": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@sveltejs/vite-plugin-svelte": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

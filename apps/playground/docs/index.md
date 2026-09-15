@@ -1,6 +1,6 @@
 # 介绍
 
-`@apollo-design/docx-preview` 将 DOCX 文档渲染为保留语义的 HTML，并附带三种形态的查看器（原生 / Vue / React）。
+`@apollo-design/docx-preview` 将 DOCX 文档渲染为保留语义的 HTML，并附带四种形态的查看器（原生 / Vue / React / Svelte）。
 
 本项目基于 **[docxjs](https://github.com/VolodymyrBaydalka/docxjs)**（作者 Volodymyr Baydalka，Apache License 2.0）深度改造。
 
@@ -20,10 +20,11 @@
 - 本地上传：选择或拖入 .docx 即预览，纯浏览器解析不上传服务器
 - OLE2 二进制识别：老 `.doc` 和 WPS 默认的 `.wps` 给出"另存为 .docx"的明确提示，而非报 zip 解析错误
 
-## 三版查看器
+## 四版查看器
 
 | 形态 | 包/入口 | 适用场景 |
 |---|---|---|
 | **原生（零依赖）** | [Browser Demo](/demos/browser/) / [Release 下载 zip](https://github.com/apollocmh/docx-preview/releases) | 不装 npm、iframe 嵌入、任意静态服务器部署 |
 | **Vue 3** | `@apollo-design/vue-docx-preview` | Vue 工程内嵌查看器组件 |
 | **React** | `@apollo-design/react-docx-preview` | React 工程内嵌查看器组件 |
+| **Svelte 5** | `@apollo-design/svelte-docx-preview` | Svelte 5（runes）工程内嵌查看器组件 |

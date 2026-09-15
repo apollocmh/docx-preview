@@ -82,6 +82,9 @@ export default defineComponent({
       setScaleMode,
       toggleThumbs,
       download,
+      passwordPrompt,
+      submitPassword,
+      cancelPassword,
     } = useDocViewer(
       { stage, docBox, thumbs },
       {
@@ -95,6 +98,30 @@ export default defineComponent({
 
     const hasUrl = computed(() => typeof props.url === 'string' && props.url.length > 0)
     const showEmpty = computed(() => !hasUrl.value && !loading.value)
+
+    // ── 密码弹窗（加密文档） ──
+    const passwordValue = ref('')
+    const passwordInput = ref<HTMLInputElement>()
+    const setPasswordInput = (el: any) => {
+      passwordInput.value = el || undefined
+    }
+    watch(passwordPrompt, async (prompt) => {
+      if (!prompt) return
+      passwordValue.value = ''
+      await nextTick()
+      passwordInput.value && passwordInput.value.focus()
+    })
+    async function onPasswordSubmit() {
+      if (!passwordValue.value) {
+        passwordInput.value && passwordInput.value.focus()
+        return
+      }
+      await submitPassword(passwordValue.value)
+      passwordValue.value = ''
+      // 密码错误时弹窗仍然打开，把焦点交回输入框
+      if (passwordPrompt.value) await nextTick()
+      if (passwordPrompt.value) passwordInput.value && passwordInput.value.focus()
+    }
 
     async function sync() {
       await nextTick()
@@ -145,6 +172,12 @@ export default defineComponent({
       scaleLabel,
       hasUrl,
       showEmpty,
+      // 密码弹窗
+      passwordPrompt,
+      passwordValue,
+      setPasswordInput,
+      onPasswordSubmit,
+      cancelPassword,
       // refs setter
       setStage,
       setDocBox,
@@ -306,6 +339,42 @@ export default defineComponent({
           </slot>
         </div>
       </main>
+    </div>
+
+    <!-- 加密文档：密码弹窗 -->
+    <div v-if="passwordPrompt" class="password-modal" role="dialog" aria-modal="true" aria-label="文档需要密码">
+      <form class="password-card" @submit.prevent="onPasswordSubmit" @keydown.esc="cancelPassword">
+        <h2 class="password-title">文档已加密</h2>
+        <p class="password-hint">「{{ passwordPrompt.fileName }}」需要密码才能打开。</p>
+        <input
+          :ref="setPasswordInput"
+          class="password-input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="请输入文档密码"
+          :value="passwordValue"
+          :disabled="passwordPrompt.busy"
+          @input="passwordValue = ($event.target as HTMLInputElement).value"
+        />
+        <p class="password-error" :hidden="!passwordPrompt.wrong">密码不正确，请重试。</p>
+        <div class="password-actions">
+          <button
+            class="password-btn"
+            type="button"
+            :disabled="passwordPrompt.busy"
+            @click="cancelPassword"
+          >
+            取消
+          </button>
+          <button
+            class="password-btn primary"
+            type="submit"
+            :disabled="passwordPrompt.busy"
+          >
+            {{ passwordPrompt.busy ? '解密中…' : '确定' }}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </template>

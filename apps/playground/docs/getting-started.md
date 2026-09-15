@@ -16,6 +16,10 @@ pnpm add @apollo-design/react-docx-preview
 pnpm add @apollo-design/vue-docx-preview
 ```
 
+```bash [Svelte 查看器]
+pnpm add @apollo-design/svelte-docx-preview
+```
+
 :::
 
 ## 核心库
@@ -60,11 +64,22 @@ import '@apollo-design/vue-docx-preview/style.css';
 </template>
 ```
 
-查看器组件通过 `url` 加载文档（默认 GET；需要鉴权时用 `customRequest` 自定义请求），`url` 变化即重新加载。
+## Svelte 5
+
+```svelte
+<script lang="ts">
+  import { DocxViewer } from '@apollo-design/svelte-docx-preview';
+  import '@apollo-design/svelte-docx-preview/style.css';
+</script>
+
+<DocxViewer url="/files/报告.docx" class="h-[600px]" onError={console.error} />
+```
+
+查看器组件通过 `url` 加载文档（默认 GET；需要鉴权时用 `customRequest` 自定义请求），`url` 变化即重新加载。四版查看器都支持带打开密码的 .docx：核心库负责解密，组件自动弹出密码框。
 
 ## 外部字体
 
-通过 `fonts` 选项注入 webfont（React/Vue 组件经 `renderOptions` 透传）。字体族名必须与文档内部引用一致（中文文档常直接引用中文族名，如 `宋体`），别名需列为单独条目：
+通过 `fonts` 选项注入 webfont（Vue/React/Svelte 组件经 `renderOptions` 透传）。字体族名必须与文档内部引用一致（中文文档常直接引用中文族名，如 `宋体`），别名需列为单独条目：
 
 ```ts
 await renderAsync(docData, container, undefined, {

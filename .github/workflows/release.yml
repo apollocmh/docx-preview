@@ -65,6 +65,7 @@ jobs:
       - name: Build wrapper packages
         run: |
           pnpm --filter @apollo-design/react-docx-preview build
+          pnpm --filter @apollo-design/svelte-docx-preview build
           pnpm --filter @apollo-design/vue-docx-preview build
 
       # Wrapper packages use pnpm pack so the workspace:* dependency range is
@@ -74,7 +75,7 @@ jobs:
       # (same repo + this workflow), and a one-time manual first publish.
       - name: Publish wrapper packages
         run: |
-          for PKG_DIR in packages/react-docx-preview packages/vue-docx-preview; do
+          for PKG_DIR in packages/react-docx-preview packages/svelte-docx-preview packages/vue-docx-preview; do
             NAME="$(node -p "require('./$PKG_DIR/package.json').name")"
             VERSION="$(node -p "require('./$PKG_DIR/package.json').version")"
             if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then

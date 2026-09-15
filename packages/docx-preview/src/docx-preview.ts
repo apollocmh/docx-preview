@@ -4,6 +4,17 @@ import { HtmlRenderer } from './html-renderer';
 import { h } from './html';
 import { paginateWrapper } from './pagination';
 
+// Encrypted-document support: classify the container, then decrypt with a
+// password. Kept framework-agnostic so every viewer shares one implementation.
+export {
+	detectOfficeFileKind,
+	isEncryptedDocx,
+	decryptDocx,
+	DocxPasswordError,
+	DocxEncryptionUnsupportedError,
+} from './encryption';
+export type { OfficeFileKind } from './encryption';
+
 export interface FontDefinition {
     /** font-family name as used in the document, e.g. "SimSun" / "宋体" */
     name: string;
