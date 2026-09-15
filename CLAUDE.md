@@ -41,7 +41,9 @@ git push --follow-tags
 
 正式发版由 GitHub Actions 完成(tag == packages/docx-preview version 校验、npm Trusted Publishing、Release 仅 tgz + viewer zip 两个 asset)。master 推送只部署 Pages。
 
-两个 wrapper 也由 release.yml 发布:同一个 tag 下先发核心包,再逐包检查 `npm view <name>@<version>`,不存在才 `pnpm pack` + publish —— 所以 wrapper 有改动必须 bump 自己的 version;核心包即使只有打包元数据变化也要 bump,否则 tag 指向已发布版本会失败。版本策略:核心包 patch/minor,wrapper 新增能力走 minor。
+三个 wrapper 也由 release.yml 发布:同一个 tag 下,核心包与每个 wrapper 都先 `npm view <name>@<version>`,已存在则跳过、不存在才 `pnpm pack` + `npm publish --provenance`。因此发版是幂等的:重跑或部分成功的发布不会再撞 "cannot publish over previously published version"。wrapper 有改动必须 bump 自己的 version,否则会被跳过。版本策略:核心包 patch/minor,wrapper 新增能力走 minor。
+
+npm Trusted Publishing 是**按包**配置的:每个包都要在 npmjs.com 的 Settings → Trusted Publishers 里绑定 `apollocmh/docx-preview` + `release.yml`(新包还需先手工首发一次把包建出来),漏配的包在 CI 里会报 `ENEEDAUTH`。wrapper 发布循环会收集失败包并在最后统一 `exit 1`,不会因单个包失败连坐后面的包。
 
 ## Constraints
 

@@ -57,10 +57,23 @@ jobs:
             exit 1
           fi
 
-      # OIDC Trusted Publishing — no NPM_TOKEN. The package's Trusted
-      # Publisher entry must point at this repo + this workflow file.
+      # OIDC Trusted Publishing — no NPM_TOKEN. Each package needs its own
+      # Trusted Publisher entry on npm (same repo + this workflow file), plus a
+      # one-time manual first publish to create the package.
+      #
+      # Every publish is guarded by an "is this version already on npm?" check,
+      # so re-running a partially successful release (or re-pushing a tag) is
+      # safe: already-published versions are skipped instead of erroring with
+      # "cannot publish over previously published version".
       - name: Publish to npm
-        run: npm publish --provenance "docx-preview-$(node -p "require('./packages/docx-preview/package.json').version").tgz"
+        run: |
+          NAME="$(node -p "require('./packages/docx-preview/package.json').name")"
+          VERSION="$(node -p "require('./packages/docx-preview/package.json').version")"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION already on npm, skipping"
+          else
+            npm publish --provenance "./docx-preview-${VERSION}.tgz"
+          fi
 
       - name: Build wrapper packages
         run: |
@@ -69,12 +82,12 @@ jobs:
           pnpm --filter @apollo-design/vue-docx-preview build
 
       # Wrapper packages use pnpm pack so the workspace:* dependency range is
-      # rewritten to the real library version. A wrapper is published only
-      # when its version isn't on npm yet — unchanged wrappers don't fail the
-      # release. Each wrapper needs its own Trusted Publisher entry on npm
-      # (same repo + this workflow), and a one-time manual first publish.
+      # rewritten to the real library version. A failed wrapper no longer
+      # aborts the loop (it used to silently block the packages after it) —
+      # failures are collected and reported at the end.
       - name: Publish wrapper packages
         run: |
+          FAILED=""
           for PKG_DIR in packages/react-docx-preview packages/svelte-docx-preview packages/vue-docx-preview; do
             NAME="$(node -p "require('./$PKG_DIR/package.json').name")"
             VERSION="$(node -p "require('./$PKG_DIR/package.json').version")"
@@ -85,8 +98,15 @@ jobs:
             echo "publishing $NAME@$VERSION"
             (cd "$PKG_DIR" && pnpm pack --pack-destination ../..)
             TGZ="$(echo "$NAME" | tr '/' '-' | sed 's/^@//')-${VERSION}.tgz"
-            npm publish --provenance "./$TGZ"
+            if ! npm publish --provenance "./$TGZ"; then
+              echo "::error file=$PKG_DIR::failed to publish $NAME@$VERSION"
+              FAILED="$FAILED $NAME@$VERSION"
+            fi
           done
+          if [ -n "$FAILED" ]; then
+            echo "publish failed for:$FAILED" >&2
+            exit 1
+          fi
 
       # Exactly two assets: the npm tarball and the standalone viewer zip.
       - name: Create GitHub Release
