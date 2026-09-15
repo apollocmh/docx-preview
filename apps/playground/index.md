@@ -19,6 +19,8 @@ features:
     details: 渲染后按真实版式把内容回流进页面尺寸的 section——表格按行拆、段落按行拆，页码字段按页正确替换。
   - title: 公文级字体保真
     details: 西文/东亚分离的字体级联、docDefaults 优先级修正、外部 webfont 三级兜底（内嵌 > fonts.json > 系统）。
-  - title: 三版查看器
-    details: 同一套 WPS 风格查看器实现：零依赖原生版（iframe 嵌入）、React 组件、Vue 3 组件。
+  - title: 四版查看器
+    details: 同一套 WPS 风格查看器实现：零依赖原生版（iframe 嵌入）、React 组件、Vue 3 组件、Svelte 5 组件。
+  - title: 带密码的 docx
+    details: ECMA-376 Agile 加密文档由核心库解密，查看器自动弹窗收密码，密码错误就地提示。
 ---

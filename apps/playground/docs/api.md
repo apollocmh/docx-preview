@@ -47,7 +47,34 @@ defaultOptions: Options; // 默认选项
 - 编辑器应用（如 MS Word）插入的 `<w:lastRenderedPageBreak/>`（需把 `ignoreLastRenderedPageBreak` 设为 `false`）
 - 段落页面设置变化（如纵向改横向）
 
-`paginate: true` 则在渲染后按真实版式重排分页（三版查看器均默认启用）。
+`paginate: true` 则在渲染后按真实版式重排分页（四版查看器均默认启用）。
+
+## 加密文档
+
+带打开密码的 .docx 是 OLE2/CFB 容器而非 zip，需先解密再渲染。支持 ECMA-376 Agile 加密（AES-256-CBC + SHA-512，Word 2010+ / WPS 默认）。
+
+```ts
+// 判断文件类型: 'ooxml' | 'encrypted' | 'legacy-binary' | 'unknown'
+detectOfficeFileKind(data: Uint8Array | ArrayBuffer): OfficeFileKind
+
+isEncryptedDocx(data: Uint8Array | ArrayBuffer): boolean
+
+// 解密, 返回与原始未加密文件逐字节一致的 Uint8Array, 可直接喂给 renderAsync
+// 密码错误抛 DocxPasswordError; 非 Agile 加密抛 DocxEncryptionUnsupportedError
+decryptDocx(data: Uint8Array | ArrayBuffer, password: string): Promise<Uint8Array>
+```
+
+```ts
+import { detectOfficeFileKind, decryptDocx, DocxPasswordError } from '@apollo-design/docx-preview';
+
+const buf = new Uint8Array(await file.arrayBuffer());
+if (detectOfficeFileKind(buf) === 'encrypted') {
+  const plain = await decryptDocx(buf, password);
+  await renderAsync(plain, document.getElementById('container'));
+}
+```
+
+四版查看器已内置密码弹窗，直接用组件即可，无需自己写这段逻辑。
 
 ## 实验性 / 内部 API
 

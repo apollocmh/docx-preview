@@ -1,6 +1,6 @@
 # @apollo-design/docx-preview
 
-将 DOCX 文档渲染为保留语义的 HTML，附带三种形态的查看器（原生 / Vue / React）。
+将 DOCX 文档渲染为保留语义的 HTML，附带四种形态的查看器（原生 / Vue / React / Svelte）。
 
 本项目基于 **[docxjs](https://github.com/VolodymyrBaydalka/docxjs)**（作者 Volodymyr Baydalka，Apache License 2.0）深度改造。
 
@@ -18,18 +18,20 @@
 
 - WPS 风格阅读器：翻页器、缩放（适应宽度/百分比）、下载、缩略图侧栏、Office 式页角裁切标记
 - 本地上传：选择或拖入 .docx 即预览，纯浏览器解析不上传服务器
-- OLE2 二进制识别：老 `.doc` 和 WPS 默认的 `.wps` 给出"另存为 .docx"的明确提示，而非报 zip 解析错误
+- **加密文档密码弹窗**：带打开密码的 .docx（ECMA-376 Agile 加密）由核心库解密，查看器自动弹窗收密码，密码错误在弹窗内提示，取消回到空态
+- 文件类型识别：加密 .docx / 普通 .docx / 旧式二进制（老 `.doc`、WPS 默认的 `.wps`）分开处理，后者给出"另存为 .docx"的明确提示，而非报 zip 解析错误
 
 
-## 三版查看器
+## 四版查看器
 
 | 形态 | 包/入口 | 适用场景 |
 |---|---|---|
 | **原生（零依赖）** | [在线演示](https://apollocmh.github.io/docx-preview/demos/browser/) / [Release 下载 zip](#独立预览器自行部署) | 不装 npm、iframe 嵌入、任意静态服务器部署 |
-| **React** | `@apollo-design/react-docx-preview` | React 工程内嵌查看器组件 |
-| **Vue 3** | `@apollo-design/vue-docx-preview` | Vue 工程内嵌查看器组件 |
+| **React** | `@apollo-design/react-docx-preview` | React（≥17）工程内嵌查看器组件 |
+| **Vue 3** | `@apollo-design/vue-docx-preview` | Vue 3 工程内嵌查看器组件 |
+| **Svelte 5** | `@apollo-design/svelte-docx-preview` | Svelte 5 工程内嵌查看器组件（runes，不支持 Svelte 4） |
 
-三版共享同一套查看器实现（WPS 风格工具栏、缩略图、页角标、分页渲染）。
+四版共享同一套查看器实现（WPS 风格工具栏、缩略图、页角标、分页渲染、密码弹窗）。
 
 ### React
 
@@ -61,7 +63,26 @@ import '@apollo-design/vue-docx-preview/style.css';
 </template>
 ```
 
-组件 props：`url`（文档地址，默认 GET 读取，变化即重新加载）、`customRequest`（自定义请求，可附加鉴权头）、`name`（下载文件名，缺省取 url 末段）、`initialScale`（`'fit'` 或数字）、`showThumbs`、`renderOptions`（库渲染选项）；事件：`onRendered` / `onError`（Vue 为 `@rendered` / `@error`）。
+### Svelte 5
+
+```bash
+pnpm add @apollo-design/svelte-docx-preview
+```
+
+```svelte
+<script lang="ts">
+  import { DocxViewer } from '@apollo-design/svelte-docx-preview'
+  import '@apollo-design/svelte-docx-preview/style.css'
+</script>
+
+<DocxViewer url="/files/报告.docx" class="h-full" onError={console.error} />
+```
+
+组件高度由外部容器决定（内部 `height: 100%`），请为父元素设置高度。
+
+组件 props：`url`（文档地址，默认 GET 读取，变化即重新加载）、`customRequest`（自定义请求，可附加鉴权头）、`name`（下载文件名，缺省取 url 末段）、`initialScale`（`'fit'` 或数字）、`showThumbs`、`renderOptions`（库渲染选项）、`empty`（无文档时的占位内容；React 为 `empty` prop，Vue 为 `#empty` 插槽，Svelte 为 `empty` snippet）；事件：`onRendered` / `onError`（Vue 为 `@rendered` / `@error`）。
+
+`url` 为空且未加载时显示空态；文档带打开密码时四版都会自动弹出密码框。
 
 ## 使用核心库（npm 包）
 
@@ -91,9 +112,12 @@ await renderAsync(docData, document.getElementById('container'));
 https://apollocmh.github.io/docx-preview/
 ```
 
-站点包含项目文档和查看器在线 Demo（默认加载内置示例文档，也可选择本地 .docx——纯浏览器解析，不上传服务器）：
+站点包含项目文档和四版查看器的在线 Demo（默认加载内置示例文档，也可选择本地 .docx——纯浏览器解析，不上传服务器）：
 
 - [Browser 原生 Demo](https://apollocmh.github.io/docx-preview/demos/browser/)
+- [Vue Demo](https://apollocmh.github.io/docx-preview/demos/vue/)
+- [React Demo](https://apollocmh.github.io/docx-preview/demos/react/)
+- [Svelte Demo](https://apollocmh.github.io/docx-preview/demos/svelte/)
 
 Demo 支持通过 URL 参数加载远程文档（需 CORS）：
 
@@ -123,7 +147,7 @@ docx-preview-viewer-{version}.zip
 
 **CORS 注意**：预览器在浏览器内通过 `fetch` 加载 DOCX URL，文件服务器必须允许跨域请求（`Access-Control-Allow-Origin`），或把预览器与文件放在同一来源下。
 
-旧式二进制文档（老 `.doc`，以及 `.wps`——即便新版 WPS Office 默认仍保存为 OLE2 二进制）会被预先识别并给出"另存为 .docx"的明确提示；只有 OOXML 包可以渲染。
+预览器同样支持带密码的 .docx：识别到加密文档会弹出密码框，密码正确后继续渲染。旧式二进制文档（老 `.doc`，以及 `.wps`——即便新版 WPS Office 默认仍保存为 OLE2 二进制）会被预先识别并给出"另存为 .docx"的明确提示；只有 OOXML 包可以渲染。
 
 预览器会把文档重排为真实分页。字体按三级解析：.docx 内嵌字体 → viewer.html 旁的 `fonts.json` 清单 → 系统字体。清单是注入为 `@font-face` 的 webfont 定义数组：
 
@@ -187,6 +211,42 @@ renderDocument(
 ): Promise<Node[]>
 ```
 
+## 加密文档（带打开密码的 .docx）
+
+核心库内置解密能力，四版查看器的密码弹窗就是基于它做的。带密码的 .docx 不是 zip，而是 OLE2/CFB 复合文档容器（内含 `EncryptionInfo` + `EncryptedPackage`），无法直接交给 `renderAsync`。
+
+```ts
+import {
+  detectOfficeFileKind, // (data) => 'ooxml' | 'encrypted' | 'legacy-binary' | 'unknown'
+  isEncryptedDocx,
+  decryptDocx,
+  DocxPasswordError,
+  DocxEncryptionUnsupportedError,
+} from '@apollo-design/docx-preview';
+
+const buf = new Uint8Array(await file.arrayBuffer());
+
+if (detectOfficeFileKind(buf) === 'encrypted') {
+  try {
+    const plain = await decryptDocx(buf, password); // Uint8Array，即原始 .docx 字节
+    await renderAsync(plain, container);
+  } catch (e) {
+    if (e instanceof DocxPasswordError) {
+      // 密码错误（verifier 校验失败），提示用户重输
+    } else if (e instanceof DocxEncryptionUnsupportedError) {
+      // 不是 ECMA-376 Agile 加密（如旧版 Office 的 Standard Encryption）
+    }
+  }
+}
+```
+
+支持范围与说明：
+
+- 支持 **ECMA-376 Agile 加密**（AES-256-CBC + SHA-512，Word 2010 及之后、WPS 的默认加密方式）；旧版 Standard Encryption 会抛 `DocxEncryptionUnsupportedError`
+- `decryptDocx` 输出与原始未加密文件逐字节一致，可直接喂给 `renderAsync`
+- 解密在浏览器主线程做，10 万次哈希迭代约数百毫秒；大文档会分片让出主线程，不会长时间卡死 UI
+- 不想自己写弹窗时，直接用四版查看器组件/独立预览器即可，它们已内置密码交互
+
 ## 分页说明
 
 库在以下情况分页：
@@ -195,17 +255,17 @@ renderDocument(
 - 编辑器应用（如 MS Word）插入的 `<w:lastRenderedPageBreak/>`（需把 `ignoreLastRenderedPageBreak` 设为 `false`）
 - 段落页面设置变化（如纵向改横向）
 
-`paginate: true` 则在渲染后按真实版式重排分页（三版查看器均默认启用）。
+`paginate: true` 则在渲染后按真实版式重排分页（四版查看器均默认启用）。
 
 ## 稳定性
 
-只有 **renderAsync** 是稳定 API，定义不会变更。解析与渲染的内部实现随时可能调整。
+只有 **renderAsync** 是稳定 API，定义不会变更。`detectOfficeFileKind` / `isEncryptedDocx` / `decryptDocx` 同样按稳定 API 对待；解析与渲染的内部实现随时可能调整。
 
 ## Credits
 
 This project is a heavily modified fork of [docxjs](https://github.com/VolodymyrBaydalka/docxjs) by **Volodymyr Baydalka**, licensed under the Apache License 2.0. Thanks to the original author for the excellent foundation.
 
-Subsequent development (pagination engine, per-script font cascade, floating-table anchoring, and the three viewer flavors) by **apollocmh**.
+Subsequent development (pagination engine, per-script font cascade, floating-table anchoring, encrypted-docx decryption, and the four viewer flavors) by **apollocmh**.
 
 ## License
 
